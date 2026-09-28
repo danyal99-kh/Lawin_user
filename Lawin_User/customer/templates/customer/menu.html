@@ -1,0 +1,32 @@
+{% extends "customer/base.html" %}
+{% load static %}
+{% block body_class %}menu-page{% endblock %}
+{% block content %}
+<header class="top">
+  <div class="brand"><b>{{ cafe }}</b><span class="table-pill">میز {{ table.number }}</span></div>
+  <nav class="tabs" role="tablist">
+    <button data-view="menu" class="on">منو</button>
+    <button data-view="orders">سفارش‌های من <em id="ordersBadge" hidden></em></button>
+  </nav>
+  <span id="conn" class="conn" title="وضعیت اتصال"></span>
+</header>
+
+<div id="waiterNote" class="waiter-note" hidden></div>
+
+<section id="menuView">
+  <div id="chips" class="chips" role="tablist"></div>
+  <div id="products" class="products"></div>
+</section>
+<section id="ordersView" hidden><div id="orders" class="orders"></div></section>
+<p id="state" class="state" hidden></p>
+
+<button id="cartBar" class="cartbar" hidden></button>
+<button id="bell" class="bell" aria-label="صدا کردن گارسون"><span>🔔</span><small>گارسون</small></button>
+
+<div id="scrim" class="scrim" hidden></div>
+<div id="sheet" class="sheet" role="dialog" aria-modal="true" hidden></div>
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+{{ cfg|json_script:"cfg" }}
+<script src="{% static 'customer/customer.js' %}"></script>
+{% endblock %}

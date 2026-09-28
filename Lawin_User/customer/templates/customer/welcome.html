@@ -1,0 +1,27 @@
+{% extends "customer/base.html" %}
+{% block body_class %}welcome{% endblock %}
+{% block content %}
+<main class="welcome-wrap">
+  <svg class="scene" viewBox="0 0 190 130" aria-hidden="true">
+    <rect x="20" y="106" width="150" height="16" rx="3" fill="#8A6A4B"/>
+    <rect x="30" y="92" width="130" height="14" rx="3" fill="#0B6B6F"/>
+    <rect x="40" y="80" width="110" height="12" rx="3" fill="#D9C7A8"/>
+    <g class="cup">
+      <path d="M70 40h50v16a25 25 0 0 1-25 25 25 25 0 0 1-25-25z" fill="#fff" stroke="#0B6B6F" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M120 46h6a9 9 0 0 1 0 18h-6" fill="none" stroke="#0B6B6F" stroke-width="4" stroke-linecap="round"/>
+    </g>
+    <path class="steam s1" d="M85 32c-6-6 6-10 0-18"/>
+    <path class="steam s2" d="M95 32c-6-6 6-10 0-18"/>
+    <path class="steam s3" d="M105 32c-6-6 6-10 0-18"/>
+  </svg>
+  <h1>{{ w.title }}</h1>
+  <p class="lead">{{ w.message }}</p>
+  <p class="table-pill">میز {{ table.number }}</p>
+  <a class="btn primary" id="go" href="{% url 'customer:menu' %}">مشاهده منو</a>
+  <div class="auto"><i></i></div>
+</main>
+<script>
+  // انتقال خودکار بعد از ۵ ثانیه؛ با کاهش حرکت هم کار می‌کند.
+  setTimeout(() => location.href = document.getElementById('go').href, 5000);
+</script>
+{% endblock %}

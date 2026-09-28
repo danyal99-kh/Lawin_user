@@ -1,0 +1,8 @@
+Django>=5.1,<5.3
+daphne>=4.1
+channels>=4.1
+channels-redis>=4.2        # فقط برای production (چند پروسه)
+djangorestframework>=3.15
+Pillow>=10.0
+qrcode[pil]>=7.4
+psycopg[binary]>=3.1       # PostgreSQL برای production (قفل ردیف‌ها)
