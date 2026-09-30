@@ -1,4 +1,5 @@
 """تست‌های WebSocket (سناریوهای ۱، ۲، ۶). TransactionTestCase چون رویدادها بعد از commit واقعی ارسال می‌شوند."""
+
 import json
 
 from asgiref.sync import sync_to_async
@@ -26,14 +27,21 @@ class WebSocketTests(TransactionTestCase):
         self.assertEqual((await comm.receive_json_from())["event"], "connected")
 
         def customer_flow():
-            c = Client(); scan(c, w.t2)
-            c.post("/api/customer/orders/", json.dumps({"items": [{"product_id": w.cake.id, "quantity": 1}]}),
-                   content_type="application/json")
+            c = Client()
+            scan(c, w.t2)
+            c.post(
+                "/api/customer/orders/",
+                json.dumps({"items": [{"product_id": w.cake.id, "quantity": 1}]}),
+                content_type="application/json",
+            )
             c.post("/api/customer/waiter/", "{}", content_type="application/json")
+
         await sync_to_async(customer_flow)()
 
         seen = [(await comm.receive_json_from())["event"] for _ in range(3)]
-        self.assertEqual(seen, ["table_status_changed", "order_created", "waiter_call_created"])
+        self.assertEqual(
+            seen, ["table_status_changed", "order_created", "waiter_call_created"]
+        )
         await comm.disconnect()
 
     async def test_scenario6_reconnect_and_resync(self):
@@ -43,12 +51,23 @@ class WebSocketTests(TransactionTestCase):
         await comm.disconnect()  # قطع اتصال
 
         def order_while_offline():
-            c = Client(); scan(c, w.t5)
-            c.post("/api/customer/orders/", json.dumps({"items": [{"product_id": w.cake.id, "quantity": 1}]}),
-                   content_type="application/json")
-            return Client(headers={"Authorization": f"Token {w.token}"}).get("/api/v1/orders/changes/?cursor=2000-01-01T00:00:00Z").json()
+            c = Client()
+            scan(c, w.t5)
+            c.post(
+                "/api/customer/orders/",
+                json.dumps({"items": [{"product_id": w.cake.id, "quantity": 1}]}),
+                content_type="application/json",
+            )
+            return (
+                Client(headers={"Authorization": f"Token {w.token}"})
+                .get("/api/v1/orders/changes/?cursor=2000-01-01T00:00:00Z")
+                .json()
+            )
+
         missed = await sync_to_async(order_while_offline)()
-        self.assertEqual(len(missed["orders"]), 1)  # رویداد از دست‌رفته با REST جبران می‌شود
+        self.assertEqual(
+            len(missed["orders"]), 1
+        )  # رویداد از دست‌رفته با REST جبران می‌شود
 
         comm2, ok = await self._admin(w.token)  # Reconnect
         self.assertTrue(ok)
@@ -58,6 +77,8 @@ class WebSocketTests(TransactionTestCase):
         await comm2.disconnect()
 
     async def test_customer_socket_needs_session(self):
-        comm = WebsocketCommunicator(application, "/ws/customer/", headers=[(b"origin", b"http://testserver")])
+        comm = WebsocketCommunicator(
+            application, "/ws/customer/", headers=[(b"origin", b"http://testserver")]
+        )
         ok, _ = await comm.connect()
         self.assertFalse(ok)

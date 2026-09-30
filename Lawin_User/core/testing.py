@@ -13,17 +13,35 @@ def make_world():
     cat = Category.objects.create(name="قهوه")
     latte = Product.objects.create(category=cat, name="لاته", price=95000)
     cake = Product.objects.create(category=cat, name="کیک", price=110000)  # بدون Recipe
-    off = Product.objects.create(category=cat, name="موکا", price=105000, is_active=False)
-    milk = InventoryItem.objects.create(name="شیر", unit="ml", current_stock=Decimal(1000), min_stock=100)
-    beans = InventoryItem.objects.create(name="قهوه", unit="g", current_stock=Decimal(500), min_stock=50)
+    off = Product.objects.create(
+        category=cat, name="موکا", price=105000, is_active=False
+    )
+    milk = InventoryItem.objects.create(
+        name="شیر", unit="ml", current_stock=Decimal(1000), min_stock=100
+    )
+    beans = InventoryItem.objects.create(
+        name="قهوه", unit="g", current_stock=Decimal(500), min_stock=50
+    )
     r = Recipe.objects.create(product=latte)
     RecipeItem.objects.create(recipe=r, inventory_item=milk, quantity=Decimal(200))
     RecipeItem.objects.create(recipe=r, inventory_item=beans, quantity=Decimal(18))
     tables = [Table.objects.create(number=n) for n in (2, 5, 8)]
     admin = get_user_model().objects.create_user("admin", password="x", is_staff=True)
     token = Token.objects.create(user=admin)
-    return SimpleNamespace(cat=cat, latte=latte, cake=cake, off=off, milk=milk, beans=beans,
-                           tables=tables, t2=tables[0], t5=tables[1], t8=tables[2], admin=admin, token=token.key)
+    return SimpleNamespace(
+        cat=cat,
+        latte=latte,
+        cake=cake,
+        off=off,
+        milk=milk,
+        beans=beans,
+        tables=tables,
+        t2=tables[0],
+        t5=tables[1],
+        t8=tables[2],
+        admin=admin,
+        token=token.key,
+    )
 
 
 def scan(client, table):

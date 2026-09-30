@@ -1,11 +1,10 @@
-"""خلاصه‌ی داشبورد ادمین. خروجی دقیقاً منطبق با DashboardSummary.fromJson در Flutter."""
+from datetime import timedelta
 
 from django.db.models import F, Sum
 from django.utils import timezone
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from core.models import Expense
 from inventory.models import InventoryItem
 from orders.constants import OrderStatus
 from orders.models import Order
@@ -13,27 +12,26 @@ from orders.serializers import order_dict
 from tables.models import Table
 from tables.serializers import table_dict
 
+from .jalali import start_of_day, start_of_jalali_month
+from .models import Expense
 
-def _jalali_month_start(now_aware):
-    """اول ماه شمسی جاری، به‌صورت DateTime آگاه از Timezone.
-    اگر jdatetime نصب نباشد، به اول ماه میلادی برمی‌گردد (فقط fallback موقت)."""
-    try:
-        import jdatetime
-
-        j = jdatetime.datetime.fromgregorian(datetime=now_aware)
-        start_naive = j.replace(
-            day=1, hour=0, minute=0, second=0, microsecond=0
-        ).togregorian()
-        return (
-            timezone.make_aware(start_naive, timezone.get_current_timezone())
-            if timezone.is_naive(start_naive)
-            else start_naive
-        )
-    except ImportError:
-        return now_aware.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+RECENT_ORDERS, RECENT_EXPENSES = 6, 5
 
 
-def _inventory_item_dict(i):
+def expense_dict(e):
+    """مطابق Expense.fromJson. (در مرحله ۴ هم از همین استفاده کن.)"""
+    return {
+        "id": e.id,
+        "title": e.title,
+        "amount": e.amount,
+        "category": e.category,
+        "date": e.date.isoformat(),
+        "note": e.note or None,
+    }
+
+
+def inventory_item_dict(i):
+    """مطابق InventoryItem.fromJson؛ Decimal → float."""
     return {
         "id": i.id,
         "name": i.name,
@@ -45,64 +43,65 @@ def _inventory_item_dict(i):
     }
 
 
-def _expense_dict(e):
-    return {
-        "id": e.id,
-        "title": e.title,
-        "amount": e.amount,
-        "category": e.category,
-        "date": e.date.isoformat(),
-        "note": e.note or None,
-    }
+def _sales(start, end):
+    """درآمد = جمع سفارش‌های پرداخت‌شده‌ای که زمان پرداختشان در بازه است."""
+    return (
+        Order.objects.filter(
+            status=OrderStatus.PAID, paid_at__gte=start, paid_at__lt=end
+        ).aggregate(s=Sum("total"))["s"]
+        or 0
+    )
+
+
+def _expenses(start, end):
+    return (
+        Expense.objects.filter(date__gte=start, date__lt=end).aggregate(
+            s=Sum("amount")
+        )["s"]
+        or 0
+    )
+
+
+def _ratio(i):
+    return float(i.current_stock / i.min_stock) if i.min_stock else 0.0
 
 
 @api_view(["GET"])
-def dashboard_summary(request):
-    now = timezone.localtime()
-    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    month_start = _jalali_month_start(now)
+def summary(request):
+    now = timezone.now()
+    day_start = start_of_day(now)
+    day_end = day_start + timedelta(days=1)  # روز تقویمی؛ برای این کار DST مهم نیست
+    month_start = start_of_jalali_month(now)
 
-    def sales(since):
-        return (
-            Order.objects.filter(status=OrderStatus.PAID, paid_at__gte=since).aggregate(
-                s=Sum("total")
-            )["s"]
-            or 0
-        )
-
-    def expenses(since):
-        return (
-            Expense.objects.filter(date__gte=since).aggregate(s=Sum("amount"))["s"] or 0
-        )
-
-    today_order_count = (
-        Order.objects.filter(created_at__gte=day_start)
+    today_orders = (
+        Order.objects.filter(created_at__gte=day_start, created_at__lt=day_end)
         .exclude(status=OrderStatus.CANCELLED)
         .count()
     )
 
-    low_stock = InventoryItem.objects.filter(
-        current_stock__lte=F("min_stock")
-    ).order_by("current_stock")
+    low = sorted(
+        InventoryItem.objects.filter(current_stock__lte=F("min_stock")), key=_ratio
+    )
 
     recent_orders = (
         Order.objects.select_related("table")
         .prefetch_related("items")
-        .order_by("-created_at")[:6]
+        .order_by("-created_at")[:RECENT_ORDERS]
     )
-
-    recent_expenses = Expense.objects.order_by("-date")[:5]
 
     return Response(
         {
-            "today_sales": sales(day_start),
-            "month_sales": sales(month_start),
-            "today_expenses": expenses(day_start),
-            "month_expenses": expenses(month_start),
-            "today_order_count": today_order_count,
+            "today_sales": _sales(day_start, day_end),
+            "month_sales": _sales(month_start, day_end),
+            "today_expenses": _expenses(day_start, day_end),
+            "month_expenses": _expenses(month_start, day_end),
+            "today_order_count": today_orders,
             "tables": [table_dict(t) for t in Table.objects.all()],
-            "low_stock_items": [_inventory_item_dict(i) for i in low_stock],
+            "low_stock_items": [inventory_item_dict(i) for i in low],
             "recent_orders": [order_dict(o) for o in recent_orders],
-            "recent_expenses": [_expense_dict(e) for e in recent_expenses],
+            "recent_expenses": [
+                expense_dict(e)
+                for e in Expense.objects.order_by("-date")[:RECENT_EXPENSES]
+            ],
         }
     )
