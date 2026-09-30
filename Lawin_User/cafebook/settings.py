@@ -4,11 +4,13 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = os.environ.get
 
-DEBUG = env("DJANGO_DEBUG", "1") == "1"
+DEBUG = env("DJANGO_DEBUG", "0") == "1"
 SECRET_KEY = env("DJANGO_SECRET_KEY", "dev-insecure-change-me")
 if not DEBUG and SECRET_KEY == "dev-insecure-change-me":
     raise RuntimeError("DJANGO_SECRET_KEY must be set when DEBUG is off")
-ALLOWED_HOSTS = [h for h in env("DJANGO_ALLOWED_HOSTS", "*" if DEBUG else "").split(",") if h]
+ALLOWED_HOSTS = [
+    h for h in env("DJANGO_ALLOWED_HOSTS", "*" if DEBUG else "").split(",") if h
+]
 CSRF_TRUSTED_ORIGINS = [o for o in env("DJANGO_CSRF_ORIGINS", "").split(",") if o]
 
 # آدرسی که داخل QR Code چاپ می‌شود (بدون / انتهایی)
@@ -16,10 +18,23 @@ PUBLIC_BASE_URL = env("PUBLIC_BASE_URL", "http://127.0.0.1:8000")
 
 INSTALLED_APPS = [
     "daphne",  # باید اول باشد: runserver را ASGI می‌کند
-    "django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
-    "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles",
-    "rest_framework", "rest_framework.authtoken", "channels",
-    "core", "accounts", "catalog", "tables", "inventory", "orders", "waiter_calls", "customer",
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "rest_framework",
+    "rest_framework.authtoken",
+    "channels",
+    "core",
+    "accounts",
+    "catalog",
+    "tables",
+    "inventory",
+    "orders",
+    "waiter_calls",
+    "customer",
 ]
 
 MIDDLEWARE = [
@@ -32,32 +47,51 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 ROOT_URLCONF = "cafebook.urls"
-TEMPLATES = [{
-    "BACKEND": "django.template.backends.django.DjangoTemplates",
-    "DIRS": [], "APP_DIRS": True,
-    "OPTIONS": {"context_processors": [
-        "django.template.context_processors.request",
-        "django.contrib.auth.context_processors.auth",
-        "django.contrib.messages.context_processors.messages",
-    ]},
-}]
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ]
+        },
+    }
+]
 WSGI_APPLICATION = "cafebook.wsgi.application"
 ASGI_APPLICATION = "cafebook.asgi.application"
 
 # قفل ردیف (select_for_update) فقط روی PostgreSQL/MySQL واقعاً کار می‌کند؛
 # SQLite برای توسعه و تست کافی است ولی برای production نه.
 if env("POSTGRES_DB"):
-    DATABASES = {"default": {
-        "ENGINE": "django.db.backends.postgresql", "NAME": env("POSTGRES_DB"),
-        "USER": env("POSTGRES_USER", "cafebook"), "PASSWORD": env("POSTGRES_PASSWORD", ""),
-        "HOST": env("POSTGRES_HOST", "127.0.0.1"), "PORT": env("POSTGRES_PORT", "5432"),
-    }}
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": env("POSTGRES_DB"),
+            "USER": env("POSTGRES_USER", "cafebook"),
+            "PASSWORD": env("POSTGRES_PASSWORD", ""),
+            "HOST": env("POSTGRES_HOST", "127.0.0.1"),
+            "PORT": env("POSTGRES_PORT", "5432"),
+        }
+    }
 else:
-    DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 if env("REDIS_URL"):
-    CHANNEL_LAYERS = {"default": {"BACKEND": "channels_redis.core.RedisChannelLayer",
-                                  "CONFIG": {"hosts": [env("REDIS_URL")]}}}
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [env("REDIS_URL")]},
+        }
+    }
 else:
     CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 
@@ -84,11 +118,14 @@ if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.TokenAuthentication"],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication"
+    ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAdminUser"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "EXCEPTION_HANDLER": "core.errors.api_exception_handler",
     "DEFAULT_THROTTLE_RATES": {"login": "10/min"},
+    "COERCE_DECIMAL_TO_STRING": False,
 }
 
 # محدودیت ثبت سفارش مشتری (در هر نشست)
