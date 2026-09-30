@@ -35,7 +35,7 @@ Production: PostgreSQL (`POSTGRES_DB`…) و Redis (`REDIS_URL`) الزامی ا
 خطا: `{"error": {"code": "insufficient_stock|inactive_product|conflict|validation|not_found|unauthorized", "message": "فارسی"}}`
 
 ## WebSocket
-- ادمین: `ws://host/ws/admin/?token=<key>` (بسته‌شدن با کد 4401 = توکن نامعتبر)
+- ادمین: `ws://host/ws/admin/?token=<key>` (بسته‌شدن با کد 401 = توکن نامعتبر)
 - مشتری: `/ws/customer/` (نشست QR)
 - قالب پیام: `{"event", "data", "id", "ts"}`؛ رویدادها: `order_created`, `order_status_changed`,
   `waiter_call_created|acknowledged|completed`, `table_status_changed`, `payment_completed`
