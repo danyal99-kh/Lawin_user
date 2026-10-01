@@ -128,7 +128,7 @@ def build_report(start, end):
     top = (
         items.order_by()
         .values("product_id", "product_name")
-        .annotate(quantity=Sum("quantity"), revenue=Sum(revenue))
+        .annotate(revenue=Sum(revenue), quantity=Sum("quantity"))
         .order_by("-revenue")[:10]
     )
     by_cat = (

@@ -1,3 +1,14 @@
+"""داشبورد مدیریت.
+
+«امروز» = روز تقویمی Asia/Tehran (TIME_ZONE پروژه) و «این ماه» = ماه شمسی جاری؛
+هر دو از همان ابزارهای core.jalali که گزارش‌های حسابداری استفاده می‌کنند می‌آیند.
+
+فروش = جمع سفارش‌های paid که زمان پرداختشان در بازه است (منطق پروژه در
+accounting_api.build_report همین است). لغوشده‌ها نه در فروش و نه در شمارش
+سفارش‌های امروز می‌آیند، ولی در recent_orders می‌مانند — چون فهرست سفارش‌های
+پنل (GET /orders/) هم لغوشده‌ها را نشان می‌دهد.
+"""
+
 from datetime import timedelta
 
 from django.db.models import F, Sum
@@ -6,41 +17,18 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from inventory.models import InventoryItem
+from inventory.serializers import item_dict
 from orders.constants import OrderStatus
 from orders.models import Order
 from orders.serializers import order_dict
 from tables.models import Table
 from tables.serializers import table_dict
 
-from .jalali import start_of_day, start_of_jalali_month
+from .expense_api import expense_dict
+from .jalali import start_of_day, start_of_jalali_month, to_jalali
 from .models import Expense
 
 RECENT_ORDERS, RECENT_EXPENSES = 6, 5
-
-
-def expense_dict(e):
-    """مطابق Expense.fromJson. (در مرحله ۴ هم از همین استفاده کن.)"""
-    return {
-        "id": e.id,
-        "title": e.title,
-        "amount": e.amount,
-        "category": e.category,
-        "date": e.date.isoformat(),
-        "note": e.note or None,
-    }
-
-
-def inventory_item_dict(i):
-    """مطابق InventoryItem.fromJson؛ Decimal → float."""
-    return {
-        "id": i.id,
-        "name": i.name,
-        "unit": i.unit,
-        "current_stock": float(i.current_stock),
-        "min_stock": float(i.min_stock),
-        "unit_cost": float(i.unit_cost),
-        "description": i.description or None,
-    }
 
 
 def _sales(start, end):
@@ -70,8 +58,11 @@ def _ratio(i):
 def summary(request):
     now = timezone.now()
     day_start = start_of_day(now)
-    day_end = day_start + timedelta(days=1)  # روز تقویمی؛ برای این کار DST مهم نیست
+    day_end = start_of_day(day_start + timedelta(days=1))  # نیمه‌باز: ۰۰:۰۰ روز بعد تهران
     month_start = start_of_jalali_month(now)
+    jy, jm, jd = to_jalali(
+        day_start.year, day_start.month, day_start.day
+    )  # ماه شمسی جاری تهران
 
     today_orders = (
         Order.objects.filter(created_at__gte=day_start, created_at__lt=day_end)
@@ -91,13 +82,22 @@ def summary(request):
 
     return Response(
         {
+            "period": {
+                "calendar": "jalali",
+                "year": jy,
+                "month": jm,
+                "day": jd,
+                "day_start": day_start.isoformat(),
+                "day_end": day_end.isoformat(),
+                "month_start": month_start.isoformat(),
+            },
             "today_sales": _sales(day_start, day_end),
             "month_sales": _sales(month_start, day_end),
             "today_expenses": _expenses(day_start, day_end),
             "month_expenses": _expenses(month_start, day_end),
             "today_order_count": today_orders,
             "tables": [table_dict(t) for t in Table.objects.all()],
-            "low_stock_items": [inventory_item_dict(i) for i in low],
+            "low_stock_items": [item_dict(i) for i in low],
             "recent_orders": [order_dict(o) for o in recent_orders],
             "recent_expenses": [
                 expense_dict(e)
