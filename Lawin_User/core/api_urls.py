@@ -2,6 +2,7 @@ from django.urls import path
 from . import api, dashboard, expense_api, accounting_api
 
 urlpatterns = [
+    path("settings/", api.cafe_settings),
     path("settings/welcome/", api.welcome_settings),
     path("accounting/transactions/", accounting_api.transactions),
     path("reports/", accounting_api.reports),

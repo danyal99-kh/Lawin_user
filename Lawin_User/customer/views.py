@@ -13,7 +13,7 @@ from django.views.decorators.http import require_GET, require_POST
 from catalog.models import Category, Product
 from catalog.services import is_available
 from core.errors import DomainError, Invalid, TooManyRequests
-from core.models import WelcomeMessage
+from core.models import CafeSettings, WelcomeMessage
 from orders import services as order_services
 from orders.constants import OrderSource
 from orders.models import Order
@@ -23,7 +23,9 @@ from waiter_calls import services as call_services
 from waiter_calls.models import WaiterCall
 from waiter_calls.serializers import call_dict
 
-CAFE_NAME = "کافه‌کتاب"
+def cafe_name():
+    """نام کافه از تنظیمات پنل خوانده می‌شود؛ همان singleton تنظیمات."""
+    return CafeSettings.load().name
 
 
 def require_table(view):
@@ -67,16 +69,16 @@ def welcome(request):
     w = WelcomeMessage.load()
     if not w.enabled:
         return redirect("customer:menu")
-    return render(request, "customer/welcome.html", {"w": w, "table": request.table, "cafe": CAFE_NAME})
+    return render(request, "customer/welcome.html", {"w": w, "table": request.table, "cafe": cafe_name()})
 
 
 @require_table
 @ensure_csrf_cookie
 def menu(request):
-    cfg = {"cafe": CAFE_NAME, "table": request.table.number,
+    cfg = {"cafe": cafe_name(), "table": request.table.number,
            "wsPath": "/ws/customer/", "urls": {"menu": "/api/customer/menu/", "orders": "/api/customer/orders/",
                                               "waiter": "/api/customer/waiter/"}}
-    return render(request, "customer/menu.html", {"cfg": cfg, "table": request.table, "cafe": CAFE_NAME})
+    return render(request, "customer/menu.html", {"cfg": cfg, "table": request.table, "cafe": cafe_name()})
 
 
 @require_GET

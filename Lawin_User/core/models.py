@@ -15,6 +15,33 @@ class Counter(models.Model):
         return obj.value
 
 
+class CafeSettings(models.Model):
+    """تنظیمات کلی کافه (پنل Flutter)؛ فقط یک ردیف (pk=1) وجود دارد.
+
+    پیام خوشامدگویی عمداً اینجا نیست و مدل جداگانه‌ی خودش را دارد
+    (WelcomeMessage)، چون صفحه‌ی خوشامدگویی مشتری جداگانه نمایش/غیرفعال
+    می‌شود و قرارداد API آن از قبل وجود دارد.
+    """
+    name = models.CharField("نام کافه", max_length=120, default="کافه‌کتاب")
+    address = models.TextField("آدرس", max_length=400, blank=True, default="")
+    phone = models.CharField("شماره تماس", max_length=40, blank=True, default="")
+    receipt_note = models.TextField("یادداشت پایین رسید", max_length=150,
+                                    blank=True, default="")
+    auto_print = models.BooleanField("چاپ خودکار سفارش بار", default=True)
+    low_stock_alert = models.BooleanField("هشدار موجودی کم در داشبورد", default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def load(cls):
+        return cls.objects.get_or_create(pk=1)[0]
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def __str__(self): return self.name
+
+
 class WelcomeMessage(models.Model):
     """تنظیم صفحه‌ی خوشامدگویی؛ فقط یک ردیف (pk=1) وجود دارد."""
     title = models.CharField("عنوان", max_length=120, default="به کافه‌کتاب خوش آمدید ☕📚")
