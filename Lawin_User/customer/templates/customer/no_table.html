@@ -1,7 +1,16 @@
 {% extends "customer/base.html" %}
+{% block title %}میز شناسایی نشد{% endblock %}
+{% block body_class %}no-table{% endblock %}
 {% block content %}
 <main class="center-msg">
+  <span class="state-ico" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="28" height="28">
+      <rect x="3.5" y="5" width="17" height="14" rx="2.5"/>
+      <path d="M3.5 9.5h17M8 5v4.5M8 13.5h3"/>
+    </svg>
+  </span>
   <h1>میز شناسایی نشد</h1>
-  <p>لطفاً QR Code روی میز را با دوربین گوشی دوباره اسکن کنید.</p>
+  <p>لطفاً QR Code روی میز را با دوربین گوشی دوباره اسکن کنید. اگر QR خوانده نمی‌شود، از کافه بخواهید صفحه‌ی میز را باز کند یا نشانی را دستی وارد کنید.</p>
+  <a class="btn primary" href="/">بازگشت به صفحه‌ی اول</a>
 </main>
 {% endblock %}

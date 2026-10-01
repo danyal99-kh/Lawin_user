@@ -14,14 +14,23 @@
     <path class="steam s2" d="M95 32c-6-6 6-10 0-18"/>
     <path class="steam s3" d="M105 32c-6-6 6-10 0-18"/>
   </svg>
+
   <h1>{{ w.title }}</h1>
   <p class="lead">{{ w.message }}</p>
-  <p class="table-pill">میز {{ table.number }}</p>
+
+  <span class="pill">میز {{ table.number }}</span>
+
   <a class="btn primary" id="go" href="{% url 'customer:menu' %}">مشاهده منو</a>
-  <div class="auto"><i></i></div>
+
+  <div class="auto" aria-hidden="true"><i></i></div>
 </main>
 <script>
   // انتقال خودکار بعد از ۵ ثانیه؛ با کاهش حرکت هم کار می‌کند.
-  setTimeout(() => location.href = document.getElementById('go').href, 5000);
+  (function () {
+    var link = document.getElementById('go');
+    if (!link) return;
+    var t = setTimeout(function () { location.href = link.href; }, 5000);
+    link.addEventListener('click', function () { clearTimeout(t); });
+  })();
 </script>
 {% endblock %}

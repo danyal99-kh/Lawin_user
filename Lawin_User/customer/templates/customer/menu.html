@@ -3,30 +3,53 @@
 {% block body_class %}menu-page{% endblock %}
 {% block content %}
 <header class="top">
-  <div class="brand"><b>{{ cafe }}</b><span class="table-pill">میز {{ table.number }}</span></div>
-  <nav class="tabs" role="tablist">
-    <button data-view="menu" class="on">منو</button>
-    <button data-view="orders">سفارش‌های من <em id="ordersBadge" hidden></em></button>
-  </nav>
-  <span id="conn" class="conn" title="وضعیت اتصال"></span>
+  <div class="top-in">
+    <div class="brand">
+      <div class="brand-txt">
+        <b>{{ cafe }}</b>
+        <span>سفارش آنلاین · بدون انتظار</span>
+      </div>
+      <span class="table-pill">میز {{ table.number }}</span>
+      <span id="conn" class="conn" role="status" aria-live="polite"><i></i><b>اتصال…</b></span>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="بخش‌های سفارش">
+      <button type="button" role="tab" data-view="menu" class="on" aria-selected="true" aria-controls="menuView">منو</button>
+      <button type="button" role="tab" data-view="orders" aria-selected="false" aria-controls="ordersView">سفارش‌های من <em id="ordersBadge" hidden></em></button>
+    </nav>
+  </div>
 </header>
 
-<div id="waiterNote" class="waiter-note" hidden></div>
+<div id="waiterNote" class="waiter-note" hidden role="status" aria-live="polite"></div>
 
-<section id="menuView">
-  <div id="chips" class="chips" role="tablist"></div>
+<section id="menuView" role="tabpanel" aria-label="منو">
+  <div id="chips" class="chips" role="tablist" aria-label="دسته‌بندی‌ها">
+    <div class="chips-in"></div>
+  </div>
   <div id="products" class="products"></div>
 </section>
-<section id="ordersView" hidden><div id="orders" class="orders"></div></section>
-<p id="state" class="state" hidden></p>
 
-<button id="cartBar" class="cartbar" hidden></button>
-<button id="bell" class="bell" aria-label="صدا کردن گارسون"><span>🔔</span><small>گارسون</small></button>
+<section id="ordersView" hidden role="tabpanel" aria-label="سفارش‌های من">
+  <div id="orders" class="orders"></div>
+</section>
+
+<div id="state" class="state" hidden role="status" aria-live="polite"></div>
+
+<button id="cartBar" class="cartbar" type="button" aria-label="مشاهده سبد سفارش" hidden></button>
+
+<button id="bell" class="bell" type="button" aria-label="صدا کردن گارسون">
+  <span aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="23" height="23">
+      <path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6"/>
+      <path d="M13.7 20a2 2 0 0 1-3.4 0"/>
+    </svg>
+  </span>
+  <small>گارسون</small>
+</button>
 
 <div id="scrim" class="scrim" hidden></div>
-<div id="sheet" class="sheet" role="dialog" aria-modal="true" hidden></div>
-<div id="toasts" class="toasts" aria-live="polite"></div>
+<div id="sheet" class="sheet" role="dialog" aria-modal="true" tabindex="-1" hidden></div>
+<div id="toasts" class="toasts" aria-live="polite" aria-atomic="false"></div>
 
 {{ cfg|json_script:"cfg" }}
-<script src="{% static 'customer/customer.js' %}"></script>
+<script src="{% static 'customer/customer.js' %}" defer></script>
 {% endblock %}
