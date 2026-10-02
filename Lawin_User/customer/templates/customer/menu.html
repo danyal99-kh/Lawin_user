@@ -1,38 +1,52 @@
 {% extends "customer/base.html" %}
 {% load static %}
+{% block title %}{{ cafe }} · سفارش میز {{ table.number }}{% endblock %}
 {% block body_class %}menu-page{% endblock %}
+{% block head %}
+<meta name="description" content="سفارش آنلاین {{ cafe }} — میز {{ table.number }}">
+{% endblock %}
 {% block content %}
+<a class="skip" href="#menuView">رفتن به فهرست منو</a>
+
 <header class="top">
   <div class="top-in">
     <div class="brand">
-      <div class="brand-txt">
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="21" height="21">
+          <path d="M5 9h11v5a5.5 5.5 0 0 1-11 0z"/>
+          <path d="M16 10.5h1.6a2.2 2.2 0 0 1 0 4.4H16"/>
+          <path d="M8.5 3.6c-.8 1 .2 1.5-.6 2.4M12 3.1c-.8 1 .2 1.5-.6 2.4"/>
+        </svg>
+      </span>
+      <span class="brand-txt">
         <b>{{ cafe }}</b>
-        <span>سفارش آنلاین · بدون انتظار</span>
-      </div>
-      <span class="table-pill">میز {{ table.number }}</span>
+        <span class="brand-sub">سفارش آنلاین <i aria-hidden="true">·</i> <b class="tno">میز {{ table.number }}</b></span>
+      </span>
       <span id="conn" class="conn" role="status" aria-live="polite"><i></i><b>اتصال…</b></span>
     </div>
-    <nav class="tabs" role="tablist" aria-label="بخش‌های سفارش">
+    <nav id="tabs" class="tabs" data-view="menu" role="tablist" aria-label="بخش‌های سفارش">
+      <i class="tab-ind" aria-hidden="true"></i>
       <button type="button" role="tab" data-view="menu" class="on" aria-selected="true" aria-controls="menuView">منو</button>
       <button type="button" role="tab" data-view="orders" aria-selected="false" aria-controls="ordersView">سفارش‌های من <em id="ordersBadge" hidden></em></button>
     </nav>
   </div>
 </header>
 
-<div id="waiterNote" class="waiter-note" hidden role="status" aria-live="polite"></div>
+<main class="wrap">
+  <div id="waiterNote" class="waiter-note" hidden role="status" aria-live="polite"></div>
 
-<section id="menuView" role="tabpanel" aria-label="منو">
-  <div id="chips" class="chips" role="tablist" aria-label="دسته‌بندی‌ها">
-    <div class="chips-in"></div>
-  </div>
-  <div id="products" class="products"></div>
-</section>
+  <section id="menuView" role="tabpanel" aria-label="منو" tabindex="-1">
+    <div id="chips" class="chips" role="tablist" aria-label="دسته‌بندی‌ها">
+      <div class="chips-in"></div>
+    </div>
+    <div id="state" class="state" hidden role="status" aria-live="polite"></div>
+    <div id="products" class="products"></div>
+  </section>
 
-<section id="ordersView" hidden role="tabpanel" aria-label="سفارش‌های من">
-  <div id="orders" class="orders"></div>
-</section>
-
-<div id="state" class="state" hidden role="status" aria-live="polite"></div>
+  <section id="ordersView" hidden role="tabpanel" aria-label="سفارش‌های من" tabindex="-1">
+    <div id="orders" class="orders"></div>
+  </section>
+</main>
 
 <button id="cartBar" class="cartbar" type="button" aria-label="مشاهده سبد سفارش" hidden></button>
 

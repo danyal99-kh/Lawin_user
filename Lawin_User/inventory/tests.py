@@ -137,8 +137,10 @@ class InventoryLedgerApiTests(TestCase):
             (j["id"], j["item_id"], j["item_name"], j["unit"]),
             (j["id"], self.w.milk.id, "شیر", "ml"),
         )
-        self.assertEqual((j["quantity"], j["unit_cost"], j["total_cost"]),
-                         (500.0, 12000.0, 6000000.0))
+        self.assertEqual(
+            (j["quantity"], j["unit_cost"], j["total_cost"]),
+            (500.0, 12000.0, 6000000.0),
+        )
         self.assertIn("purchased_at", j)
 
         t = InventoryTransaction.objects.get(pk=j["id"])
@@ -194,7 +196,7 @@ class InventoryLedgerApiTests(TestCase):
         self.assertEqual(float(self.w.milk.current_stock), 800.0)
 
         self.assertEqual(
-            (j["item_id"], j["item_name"], j["unit"], j["reason"]), 
+            (j["item_id"], j["item_name"], j["unit"], j["reason"]),
             (self.w.milk.id, "شیر", "ml", "spoiled"),
         )
         self.assertEqual((j["quantity"], j["note"]), (200.0, "یخ‌زده"))

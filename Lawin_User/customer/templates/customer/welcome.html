@@ -1,14 +1,24 @@
 {% extends "customer/base.html" %}
+{% block title %}{{ cafe }}{% endblock %}
 {% block body_class %}welcome{% endblock %}
 {% block content %}
 <main class="welcome-wrap">
+  <span class="w-mark" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="30" height="30">
+      <path d="M4 7.5h13v6a6.5 6.5 0 0 1-13 0z"/>
+      <path d="M17 9h1.8a2.4 2.4 0 0 1 0 4.8H17"/>
+      <path d="M3.5 20.5h14"/>
+    </svg>
+  </span>
+
   <svg class="scene" viewBox="0 0 190 130" aria-hidden="true">
-    <rect x="20" y="106" width="150" height="16" rx="3" fill="#8A6A4B"/>
-    <rect x="30" y="92" width="130" height="14" rx="3" fill="#0B6B6F"/>
-    <rect x="40" y="80" width="110" height="12" rx="3" fill="#D9C7A8"/>
+    <rect x="20" y="106" width="150" height="15" rx="4" fill="#8A6A4B"/>
+    <rect x="30" y="93" width="130" height="13" rx="4" fill="#0B6B6F"/>
+    <rect x="41" y="81" width="108" height="12" rx="4" fill="#EADFCB"/>
     <g class="cup">
       <path d="M70 40h50v16a25 25 0 0 1-25 25 25 25 0 0 1-25-25z" fill="#fff" stroke="#0B6B6F" stroke-width="4" stroke-linejoin="round"/>
       <path d="M120 46h6a9 9 0 0 1 0 18h-6" fill="none" stroke="#0B6B6F" stroke-width="4" stroke-linecap="round"/>
+      <path d="M74 44h42v5a21 21 0 0 1-21 21 21 21 0 0 1-21-21z" fill="#DCEEEE"/>
     </g>
     <path class="steam s1" d="M85 32c-6-6 6-10 0-18"/>
     <path class="steam s2" d="M95 32c-6-6 6-10 0-18"/>
