@@ -21,7 +21,7 @@ Production: PostgreSQL (`POSTGRES_DB`…) و Redis (`REDIS_URL`) الزامی ا
 |---|---|
 | core | شمارنده‌ی سفارش، WelcomeMessage، Expense، رویدادها (`events.py`)، Consumerها، قالب خطا |
 | tables | Table، TableSession، قانون باز/بسته‌شدن نشست (`services.py`) |
-| catalog | Category، Product (کوچک‌سازی تصویر)، دسترسی‌پذیری |
+| catalog | Category، Product (کوچک‌سازی تصویر + آپلود تصویر از طریق multipart)، دسترسی‌پذیری |
 | inventory | InventoryItem، Recipe، RecipeItem، InventoryTransaction (دفتر حرکت) |
 | orders | Order، OrderItem، Payment و **تمام منطق حساس** در `services.py` (transaction.atomic) |
 | waiter_calls | WaiterCall + قید یکتایی دیتابیس (یک درخواست فعال برای هر میز) |
@@ -31,7 +31,7 @@ Production: PostgreSQL (`POSTGRES_DB`…) و Redis (`REDIS_URL`) الزامی ا
 `POST /api/v1/auth/login/` · `GET /tables/` · `POST /tables/{id}/reserve|pay/` ·
 `GET|POST /orders/` · `GET /orders/changes/?cursor=` · `POST /orders/{id}/status|pay|bar-printed/` ·
 `GET /waiter-calls/?active=1` · `POST /waiter-calls/{id}/acknowledge|complete/` ·
-`GET|PUT /settings/welcome/` · CRUD `/categories/` `/products/`
+`GET|PUT /settings/welcome/` · CRUD `/categories/` `/products/` (آپلود تصویر: multipart/form-data)
 خطا: `{"error": {"code": "insufficient_stock|inactive_product|conflict|validation|not_found|unauthorized", "message": "فارسی"}}`
 
 ## WebSocket
@@ -41,3 +41,6 @@ Production: PostgreSQL (`POSTGRES_DB`…) و Redis (`REDIS_URL`) الزامی ا
   `waiter_call_created|acknowledged|completed`, `table_status_changed`, `payment_completed`
 - بعد از هر (باز)اتصال کلاینت باید با REST همگام شود (`/orders/changes/`, `/tables/`, `/waiter-calls/?active=1`).
 - صدای هشدار هر ۳۰ ثانیه سمت Flutter است: تا وقتی درخواستی با `status=pending` در Provider هست Timer فعال بماند.
+
+## Production
+متغیرهای محیطی و راه‌اندازی Production در `README.md.production` موجود است.

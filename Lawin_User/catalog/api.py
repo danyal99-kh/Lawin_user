@@ -16,7 +16,7 @@ class CategorySerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     category_id = serializers.PrimaryKeyRelatedField(source="category", queryset=Category.objects.all())
     image_url = serializers.SerializerMethodField()
-    image = serializers.ImageField(write_only=True, required=False)
+    image = serializers.ImageField(write_only=True, required=False, allow_null=True)
 
     class Meta:
         model = Product
@@ -29,6 +29,22 @@ class ProductSerializer(serializers.ModelSerializer):
         req = self.context.get("request")
         return req.build_absolute_uri(p.image.url) if req else p.image.url
 
+    def update(self, instance, validated_data):
+        if 'image' in validated_data:
+            new_image = validated_data.pop('image')
+            if new_image is None:
+                if instance.image:
+                    instance.image.delete(save=False)
+                instance.image = None
+            else:
+                if instance.image:
+                    try:
+                        instance.image.delete(save=False)
+                    except Exception:
+                        pass
+                instance.image = new_image
+        return super().update(instance, validated_data)
+
 
 class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
@@ -40,9 +56,13 @@ class CategoryViewSet(viewsets.ModelViewSet):
         obj.delete()
 
 
+from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
+
+
 class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     queryset = Product.objects.select_related("category")
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def perform_destroy(self, obj):
         from orders.constants import OPEN_STATUSES

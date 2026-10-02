@@ -6,3 +6,4 @@ djangorestframework>=3.15
 Pillow>=10.0
 qrcode[pil]>=7.4
 psycopg[binary]>=3.1       # PostgreSQL برای production (قفل ردیف‌ها)
+django-cors-headers>=4.7

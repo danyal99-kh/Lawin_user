@@ -1,0 +1,65 @@
+# CafeBook - Production Deployment Guide
+
+## Environment Variables
+
+Required environment variables for production:
+
+```bash
+DJANGO_DEBUG=0
+DJANGO_SECRET_KEY=<long-random-secret-key>
+DJANGO_ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
+DJANGO_CSRF_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+DJANGO_CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+PUBLIC_BASE_URL=https://yourdomain.com
+```
+
+### Database (PostgreSQL)
+
+```bash
+POSTGRES_DB=cafebook
+POSTGRES_USER=cafebook
+POSTGRES_PASSWORD=<strong-password>
+POSTGRES_HOST=127.0.0.1
+POSTGRES_PORT=5432
+```
+
+### Redis
+
+```bash
+REDIS_URL=redis://127.0.0.1:6379/0
+```
+
+### Security (Optional but recommended)
+
+```bash
+DJANGO_SECURE_SSL_REDIRECT=1
+DJANGO_SECURE_HSTS_SECONDS=31536000
+DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS=1
+DJANGO_SECURE_HSTS_PRELOAD=1
+```
+
+## Setup
+
+1. Install dependencies: `pip install -r requirements.txt`
+2. Set environment variables
+3. Run migrations: `python manage.py migrate`
+4. Create superuser: `python manage.py createsuperuser`
+5. Collect static files: `python manage.py collectstatic --noinput`
+
+## Production Server
+
+For ASGI (with WebSockets): Use Uvicorn or Daphne behind Nginx
+```bash
+daphne -b 0.0.0.0 -p 8000 cafebook.asgi:application
+```
+
+## PostgreSQL Backup
+
+```bash
+pg_dump -U cafebook cafebook > backup_$(date +%Y%m%d_%H%M%S).sql
+pg_restore -U cafebook -d cafebook backup.sql
+```
+
+## Redis
+
+Ensure Redis is running and accessible via REDIS_URL for rate limiting and channels.
