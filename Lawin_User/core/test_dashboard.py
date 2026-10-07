@@ -65,6 +65,12 @@ class JalaliTests(TestCase):
 
 class DashboardTestBase(TestCase):
     def setUp(self):
+        # کل تست روی زمانِ قفل‌شده اجرا می‌شود تا «امروز» برای داشبورد قطعی باشد و
+        # نتیجه به ساعت اجرای واقعی وابسته نباشد. `_pay`/`_moved` برای لحظه‌های
+        # دیگر دوباره زمان را قفل می‌کنند.
+        self._clock = patch("django.utils.timezone.now", return_value=FROZEN)
+        self._clock.start()
+        self.addCleanup(self._clock.stop)
         self.w = make_world()
         self.api = Client(headers={"Authorization": f"Token {self.w.token}"})
 
@@ -76,19 +82,29 @@ class DashboardTestBase(TestCase):
         )
 
     def _paid(self, moment, qty=1):
-        """سفارشی که در لحظه‌ی دلخواهِ تهران پرداخت شده است."""
+        """سفارشی که در لحظه‌ی دلخواهِ تهران پرداخت شده است.
+
+        زمان باید هنگامِ خودِ `pay_order` قفل شود، چون دفتر حسابداری همان لحظه
+        `occurred_at` را ثبت می‌کند. عوض‌کردن `paid_at` بعد از پرداخت (که قبلاً
+        با `.update()` انجام می‌شد) زمانِ واقعی فروش را از دفتر جدا می‌کرد و
+        دقیقاً همان ناهماهنگی‌ای است که این بازطراحی برای جلوگیری از آن است.
+        """
         o = self._order(qty=qty)
-        services.pay_order(o.id, "cash", self.w.admin)
-        Order.objects.filter(pk=o.pk).update(paid_at=moment)
+        self._pay(o.id, moment)
         return o
+
+    def _pay(self, order_id, moment, method="cash"):
+        """پرداخت در زمانِ قفل‌شده تا زمانِ ثبت‌شده در دفتر قطعی باشد."""
+        with patch("django.utils.timezone.now", return_value=moment):
+            return services.pay_order(order_id, method, self.w.admin)
 
     def _moved(self, order, moment):
         Order.objects.filter(pk=order.pk).update(created_at=moment)
         return order
 
-    def _expense(self, title, amount, moment):
+    def _expense(self, title, amount, moment, category="other"):
         return Expense.objects.create(
-            title=title, amount=amount, category="raw_materials", date=moment
+            title=title, amount=amount, category=category, date=moment
         )
 
     def _summary(self, now=FROZEN):
@@ -141,17 +157,26 @@ class DashboardShapeTests(DashboardTestBase):
             self.assertEqual(t["status"], Table.Status.EMPTY)
 
     def test_query_count_is_bounded(self):
-        """داشboardsه‌کوئری منطقی: جمع‌ها در DB، نه در پایتون."""
+        """جمع‌ها در DB محاسبه می‌شوند، نه در پایتون؛ و تعداد کوئری کنترل‌شده است.
+
+        قبلاً ۴ کوئری `Sum` جدا برای فروش/هزینه‌ی امروز و ماه لازم بود؛ حالا هر سه
+        بازه (مانده‌ی کل، امروز، این ماه) در **یک** کوئری `balances_multi` از دفتر
+        حسابداری می‌آید. یک کوئری هم به `payments` اضافه شد چون هر سفارش حالا
+        فهرست پرداخت‌هایش را هم برمی‌گرداند.
+        """
         self._order()
         with CaptureQueriesContext(connection) as ctx:
             self._summary()
-        self.assertEqual(len(ctx.captured_queries), 11)
+        # ۱ احراز هویت + ۱ دفتر (هر سه بازه) + ۱ تنظیمات + ۱ شمارش سفارش امروز
+        # + ۱ کالای رو به اتمام + ۱ میز + ۱ سفارش‌های اخیر + ۱ اقلام سفارش
+        # + ۱ پرداخت‌های سفارش + ۱ هزینه‌های اخیر
+        self.assertEqual(len(ctx.captured_queries), 10)
 
 
 class DashboardSalesTests(DashboardTestBase):
     def test_sales_orders_and_cancelled(self):
         paid = self._order(self.w.t2, self.w.cake, 2)  # ۲۲۰٬۰۰۰
-        services.pay_order(paid.id, "cash", self.w.admin)
+        self._pay(paid.id, FROZEN)
         self._order(self.w.t5, self.w.cake)  # باز، پرداخت‌نشده
         gone = self._order(self.w.t8, self.w.cake)
         services.change_status(gone.id, "cancelled")
@@ -236,8 +261,8 @@ class DashboardSalesTests(DashboardTestBase):
     def test_sales_follow_payment_time_not_creation(self):
         """فروش بر اساس زمان پرداخت است، نه زمان ثبت سفارش."""
         o = self._order()
-        services.pay_order(o.id, "cash", self.w.admin)
-        Order.objects.filter(pk=o.pk).update(created_at=T(2026, 8, 1, 10, 0))
+        self._pay(o.id, FROZEN)  # فروش «امروز»
+        self._moved(o, T(2026, 8, 1, 10, 0))  # ولی سفارش مردادی است
         d = self._summary()
         self.assertEqual(d["today_sales"], o.total)
         self.assertEqual(d["today_order_count"], 0)  # سفارش دیروزی است
@@ -282,7 +307,9 @@ class DashboardRecentTests(DashboardTestBase):
         self.assertEqual(len(rows), 5)
         self.assertEqual([r["title"] for r in rows], [f"هزینه {i}" for i in (6, 5, 4, 3, 2)])
         self.assertEqual(
-            sorted(rows[0]), ["amount", "category", "date", "id", "note", "title"]
+            sorted(rows[0]),
+            # `account` هم اضافه شده: هر هزینه از کدام حساب (صندوق/بانک) پرداخت شده.
+            ["account", "amount", "category", "date", "id", "note", "title"],
         )
         self.assertEqual(
             datetime.fromisoformat(rows[0]["date"]), T(2026, 9, 30, 10, 6)

@@ -28,6 +28,7 @@ def purchase_dict(t):
         "quantity": float(t.quantity),
         "unit_cost": float(t.unit_cost or 0),
         "total_cost": float(t.quantity * (t.unit_cost or 0)),
+        "account": t.account or "cash",
         "purchased_at": t.created_at.isoformat(),
         "note": t.note or None,
     }

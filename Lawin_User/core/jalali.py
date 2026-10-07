@@ -53,10 +53,16 @@ def start_of_day(value):
     """
     شروع روز تقویمی بر اساس timezone فعال Django.
 
-    خروجی یک datetime timezone-aware در ساعت 00:00 همان روز است.
+    ورودی می‌تواند `date` یا `datetime` باشد. خروجی یک datetime timezone-aware در
+    ساعت 00:00 همان روز است.
     """
-    if timezone.is_naive(value):
+    if isinstance(value, datetime) and timezone.is_naive(value):
         value = timezone.make_aware(value)
+    elif not isinstance(value, datetime):
+        # `date` در میانه‌ی شب به وقت تهران تفسیر می‌شود تا ۰۰:۰۰ همان روز باشد.
+        value = timezone.make_aware(
+            datetime(value.year, value.month, value.day)
+        )
 
     local_value = timezone.localtime(value)
 

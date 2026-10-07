@@ -70,5 +70,6 @@ def reserve(request, pk):
 @api_view(["POST"])
 def pay_table(request, pk):
     """پرداخت همه‌ی سفارش‌های باز میز → Order=paid, Session=closed, Table=empty."""
-    order_services.pay_table(pk, request.data.get("method"), request.user)
+    order_services.pay_table(pk, request.data.get("method"), request.user,
+                              payments=request.data.get("payments"))
     return Response(build_overviews([Table.objects.get(pk=pk)])[0])

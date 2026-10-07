@@ -44,6 +44,26 @@ def make_world():
     )
 
 
+def make_financial_world():
+    """world + رمز امنیتی و یک بلیت مالیِ معتبر برای تست‌های گیت‌شده.
+
+    تست‌های حسابداری/هزینه‌ها/دفتر به هدر `X-Security-Ticket` نیاز دارند؛ اینجا
+    رمزِ تست مستقیم هش می‌شود (وارد endpoint رمز نمی‌شود) تا تست‌ها مستقل از
+    جریان ورود امنیتی باشند.
+    """
+    from django.contrib.auth.hashers import make_password
+
+    from core.models import SecuritySettings
+    from core.security import issue_ticket
+
+    w = make_world()
+    s = SecuritySettings.load()
+    s.security_hash = make_password("dev-secret")
+    s.save()
+    w.security_ticket = issue_ticket(w.admin.id)
+    return w
+
+
 def scan(client, table):
     """شبیه‌سازی اسکن QR."""
     return client.get(f"/menu/table/{table.public_token}/")

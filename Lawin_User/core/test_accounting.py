@@ -6,24 +6,33 @@ from django.utils import timezone
 
 from core.jalali import to_jalali
 from core.models import Expense
-from core.testing import make_world
+from core.security import TICKET_HEADER
+from core.testing import make_financial_world
 from orders import services
 
 
 class AccountingReportTests(TestCase):
     def setUp(self):
-        self.w = make_world()
-        self.api = Client(headers={"Authorization": f"Token {self.w.token}"})
+        self.w = make_financial_world()
+        self.api = Client(
+            headers={
+                "Authorization": f"Token {self.w.token}",
+                TICKET_HEADER: self.w.security_ticket,
+            }
+        )
         o = services.create_order(
             table_id=self.w.t2.id,
             source="admin",
             items=[{"product_id": self.w.cake.id, "quantity": 2}],
         )
         services.pay_order(o.id, "cash", self.w.admin)  # ۲۲۰٬۰۰۰
+        # دسته‌ی `raw_materials` حذف شده است: هزینه‌ی خرید کالا دیگر هزینه نیست،
+        # خرید یک رویداد جداگانه (Purchase) با اثر موجودی و نقدینگی است.
         Expense.objects.create(
             title="خرید شیر",
             amount=50000,
-            category="raw_materials",
+            category="supplies",
+            note="خرید مواد اولیه",
             date=timezone.now(),
         )
         Expense.objects.create(
@@ -63,7 +72,7 @@ class AccountingReportTests(TestCase):
         self.assertEqual(r["top_products"][0]["product_name"], "کیک")
         self.assertEqual(r["top_products"][0]["revenue"], 220000)
         self.assertEqual(
-            r["expenses_by_category"], [{"category": "raw_materials", "amount": 50000}]
+            r["expenses_by_category"], [{"category": "supplies", "amount": 50000}]
         )
         self.assertEqual(len(r["daily_points"]), 1)
         self.assertEqual(r["daily_points"][0]["sales"], 220000)

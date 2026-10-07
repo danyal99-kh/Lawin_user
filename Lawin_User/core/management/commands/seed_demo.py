@@ -49,8 +49,10 @@ class Command(BaseCommand):
         for n in range(1, 11):
             Table.objects.get_or_create(number=n)
         WelcomeMessage.load()
+        # خرید مواد اولیه از مسیر خرید انبار ثبت می‌شود، نه هزینه؛ اینجا فقط یک
+        # هزینه‌ی عملیاتی نمونه ساخته می‌شود تا دفتر حسابداری خالی نباشد.
         if not Expense.objects.exists():
-            Expense.objects.create(title="خرید شیر", amount=850000, category="raw_materials", date=timezone.now() - timedelta(hours=3))
+            Expense.objects.create(title="اجاره ماه", amount=850000, category="rent", date=timezone.now() - timedelta(hours=3))
         if settings.DEBUG:
             U = get_user_model()
             u, made = U.objects.get_or_create(username="admin", defaults={"is_staff": True, "is_superuser": True})

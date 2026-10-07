@@ -14,8 +14,10 @@ class Order(models.Model):
     table = models.ForeignKey("tables.Table", on_delete=models.PROTECT, related_name="orders")
     session = models.ForeignKey("tables.TableSession", on_delete=models.PROTECT, related_name="orders")
     status = models.CharField(max_length=10, choices=OrderStatus.choices, default=OrderStatus.NEW, db_index=True)
-    payment_status = models.CharField(max_length=10, default="unpaid")  # unpaid | paid
+    payment_status = models.CharField(max_length=10, default="unpaid")  # unpaid | paid | refunded
     payment_method = models.CharField(max_length=15, choices=PaymentMethod.choices, null=True, blank=True)
+    # کلید یکتای اختیاری کلاینت برای جلوگیری از ثبت دوباره‌ی یک سفارش (idempotency)
+    idempotency_key = models.CharField(max_length=64, blank=True, null=True, unique=True)
     customer_note = models.CharField(max_length=200, blank=True)
     # کلید نشست مرورگر مشتری؛ دسترسی مشتری فقط به سفارش‌های همین کلید است.
     customer_key = models.CharField(max_length=40, blank=True, db_index=True)
@@ -27,7 +29,10 @@ class Order(models.Model):
     bar_printed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        # `-number` به‌عنوان تفکیک‌کننده لازم است: چند سفارش در یک ثانیه ثبت می‌شوند و
+        # بدون آن «جدیدترین» بین‌شان نامعین می‌شود. `number` از یک شمارنده‌ی یکتا و
+        # یکنوا می‌آید (Counter.next) و برخلاف `id` که UUID است ترتیب زمانی دارد.
+        ordering = ["-created_at", "-number"]
 
     @property
     def is_open(self):
@@ -47,8 +52,14 @@ class OrderItem(models.Model):
 
 
 class Payment(models.Model):
-    order = models.OneToOneField(Order, on_delete=models.PROTECT, related_name="payment")
+    """پرداخت یک سفارش. یک سفارش می‌تواند چند پرداخت (چند روش) داشته باشد؛
+    جمع مبالغ باید دقیقاً برابر مبلغ سفارش شود تا سفارش «پرداخت‌شده» باشد."""
+
+    order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="payments")
     method = models.CharField(max_length=15, choices=PaymentMethod.choices)
     amount = models.PositiveBigIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        ordering = ["created_at", "id"]

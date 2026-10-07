@@ -41,6 +41,27 @@ class TooManyRequests(DomainError):
     status, code = 429, "rate_limited"
 
 
+class SecurityDenied(DomainError):
+    """رمز امنیتی نادرست یا نشست امنیتی نامعتبر/منقضی.
+
+    پیام عمداً عمومی است (مثل پیام ورود) تا وجود و درستی رمز را لو ندهد.
+    """
+
+    status, code = 403, "security_denied"
+
+    def __init__(self):
+        super().__init__("رمز امنیتی صحیح نیست.")
+
+
+class SecurityNotConfigured(DomainError):
+    """رمز امنیتی هنوز تنظیم نشده؛ کاربر باید اول از تنظیمات آن را بسازد."""
+
+    status, code = 403, "security_not_configured"
+
+    def __init__(self):
+        super().__init__("رمز امنیتی هنوز تنظیم نشده است.")
+
+
 FIELD_LABELS = {
     "name": "نام",
     "title": "عنوان",

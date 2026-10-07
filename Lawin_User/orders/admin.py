@@ -1,17 +1,11 @@
+"""ثبت Order/Payment در پنل ادمین در `core/admin.py` انجام می‌شود و عمداً
+فقط‌خواندنی است (سرویس‌ها تنها مسیر نوشتن هستند تا موجودی و دفتر حسابداری
+با هم هماهنگ بمانند)."""
+
 from django.contrib import admin
+
 from .models import Order, OrderItem, Payment
 
+__all__ = ["Order", "OrderItem", "Payment"]
 
-class ItemInline(admin.TabularInline):
-    model = OrderItem
-    extra = 0
-
-
-@admin.register(Order)
-class OrderAdmin(admin.ModelAdmin):
-    list_display = ("number", "table", "status", "total", "created_at")
-    list_filter = ("status", "source")
-    inlines = [ItemInline]
-
-
-admin.site.register(Payment)
+assert admin  # نگه‌داشتن ایمپورت برای ابزارهای تحلیل استاتیک

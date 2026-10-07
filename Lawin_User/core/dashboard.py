@@ -11,7 +11,7 @@ accounting_api.build_report همین است). لغوشده‌ها نه در فر
 
 from datetime import timedelta
 
-from django.db.models import F, Sum
+from django.db.models import F
 from django.utils import timezone
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -24,30 +24,13 @@ from orders.serializers import order_dict
 from tables.models import Table
 from tables.serializers import table_dict
 
+from . import ledger
 from .expense_api import expense_dict
 from .jalali import start_of_day, start_of_jalali_month, to_jalali
-from .models import Expense
+from .models import CafeSettings, CashAccount, Expense
+from .models import LedgerAccount
 
 RECENT_ORDERS, RECENT_EXPENSES = 6, 5
-
-
-def _sales(start, end):
-    """درآمد = جمع سفارش‌های پرداخت‌شده‌ای که زمان پرداختشان در بازه است."""
-    return (
-        Order.objects.filter(
-            status=OrderStatus.PAID, paid_at__gte=start, paid_at__lt=end
-        ).aggregate(s=Sum("total"))["s"]
-        or 0
-    )
-
-
-def _expenses(start, end):
-    return (
-        Expense.objects.filter(date__gte=start, date__lt=end).aggregate(
-            s=Sum("amount")
-        )["s"]
-        or 0
-    )
 
 
 def _ratio(i):
@@ -64,6 +47,28 @@ def summary(request):
         day_start.year, day_start.month, day_start.day
     )  # ماه شمسی جاری تهران
 
+    # همه‌ی ارقام مالی از دفتر حسابداری مرکزی خوانده می‌شوند (بدون محاسبه‌ی دوباره)
+    # و «مانده‌ی کل»، «امروز» و «این ماه» همه در یک کوئری خوانده می‌شوند.
+    _b = ledger.balances_multi(
+        [("all", None, None), ("day", day_start, day_end),
+         ("month", month_start, day_end)]
+    )
+    all_bal, spans, month = _b["all"], _b["day"], _b["month"]
+    settings_row = CafeSettings.current()
+
+    def pl(b):
+        gross = b[LedgerAccount.REVENUE] - b[LedgerAccount.COGS]
+        return {
+            "revenue": b[LedgerAccount.REVENUE],
+            "cogs": b[LedgerAccount.COGS],
+            "waste": b[LedgerAccount.WASTE],
+            "expenses": b[LedgerAccount.EXPENSE],
+            "gross_profit": gross,
+            "net_profit": gross - b[LedgerAccount.EXPENSE] - b[LedgerAccount.WASTE],
+        }
+
+    today_pl, month_pl = pl(spans), pl(month)
+
     today_orders = (
         Order.objects.filter(created_at__gte=day_start, created_at__lt=day_end)
         .exclude(status=OrderStatus.CANCELLED)
@@ -74,11 +79,11 @@ def summary(request):
         InventoryItem.objects.filter(current_stock__lte=F("min_stock")), key=_ratio
     )
 
-    recent_orders = (
-        Order.objects.select_related("table")
-        .prefetch_related("items")
-        .order_by("-created_at")[:RECENT_ORDERS]
-    )
+    # ترتیب از Meta.ordering مدل می‌آید (`-created_at`, سپس `-number`) تا وقتی چند
+    # سفارش در یک ثانیه ثبت می‌شوند «جدیدترین» نامعین نشود.
+    recent_orders = Order.objects.select_related("table").prefetch_related(
+        "items", "payments"
+    )[:RECENT_ORDERS]
 
     return Response(
         {
@@ -91,10 +96,21 @@ def summary(request):
                 "day_end": day_end.isoformat(),
                 "month_start": month_start.isoformat(),
             },
-            "today_sales": _sales(day_start, day_end),
-            "month_sales": _sales(month_start, day_end),
-            "today_expenses": _expenses(day_start, day_end),
-            "month_expenses": _expenses(month_start, day_end),
+            "today_sales": today_pl["revenue"],
+            "month_sales": month_pl["revenue"],
+            "today_expenses": today_pl["expenses"],
+            "month_expenses": month_pl["expenses"],
+            "today_cogs": today_pl["cogs"],
+            "month_cogs": month_pl["cogs"],
+            "today_waste": today_pl["waste"],
+            "month_waste": month_pl["waste"],
+            "today_profit": today_pl["net_profit"],
+            "month_profit": month_pl["net_profit"],
+            "today_gross_profit": today_pl["gross_profit"],
+            "month_gross_profit": month_pl["gross_profit"],
+            "inventory_value": all_bal[LedgerAccount.INVENTORY],
+            "cash_balance": settings_row.opening_cash + all_bal[CashAccount.CASH],
+            "bank_balance": settings_row.opening_bank + all_bal[CashAccount.BANK],
             "today_order_count": today_orders,
             "tables": [table_dict(t) for t in Table.objects.all()],
             "low_stock_items": [item_dict(i) for i in low],

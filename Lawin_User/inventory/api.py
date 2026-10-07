@@ -179,17 +179,49 @@ def item_detail(request, pk):
 
 @api_view(["GET", "POST"])
 def purchases(request):
-    """خرید کالا: موجودی و آخرین قیمت خرید را بالا می‌برد و در دفتر حرکت ثبت می‌شود."""
+    """خرید کالا: موجودی و آخرین قیمت خرید بالا می‌رود، پول از حساب انتخابی
+    خارج و موجودی در دفتر حسابداری ثبت می‌شود (هزینه‌ی سود و زیان نیست)."""
     if request.method == "POST":
         t = services.create_purchase(request.data)
         return Response(purchase_dict(t), status=201)
     return Response([purchase_dict(t) for t in services.list_purchases()[:LIST_LIMIT]])
 
 
+@api_view(["GET", "PATCH", "PUT", "DELETE"])
+def purchase_detail(request, pk):
+    """اصلاح/حذف یک خرید. اثر مالی قبلی جایگزین یا حذف می‌شود تا مبلغ قدیمی
+    در گزارش‌ها باقی نماند (اصل ۱۱ پروژه)."""
+    if request.method == "DELETE":
+        services.delete_purchase(pk)
+        return Response(status=204)
+    if request.method in ("PATCH", "PUT"):
+        t = services.update_purchase(pk, request.data)
+        return Response(purchase_dict(t))
+    t = services.list_purchases().filter(pk=pk).first()
+    if t is None:
+        raise NotFound("خرید پیدا نشد.")
+    return Response(purchase_dict(t))
+
+
 @api_view(["GET", "POST"])
 def wastes(request):
-    """ضایعات کالا: موجودی را کم می‌کند؛ بیش از موجودی با ۴۰۹ رد می‌شود."""
+    """ضایعات کالا: موجودی کم، زیان ضایعات در دفتر ثبت می‌شود؛ بیش از موجودی ۴۰۹."""
     if request.method == "POST":
         t = services.create_waste(request.data)
         return Response(waste_dict(t), status=201)
     return Response([waste_dict(t) for t in services.list_wastes()[:LIST_LIMIT]])
+
+
+@api_view(["GET", "PATCH", "PUT", "DELETE"])
+def waste_detail(request, pk):
+    """اصلاح/حذف یک رکورد ضایعات؛ کالا به انبار برمی‌گردد و زیان از دفتر پاک می‌شود."""
+    if request.method == "DELETE":
+        services.delete_waste(pk)
+        return Response(status=204)
+    if request.method in ("PATCH", "PUT"):
+        t = services.update_waste(pk, request.data)
+        return Response(waste_dict(t))
+    t = services.list_wastes().filter(pk=pk).first()
+    if t is None:
+        raise NotFound("ضایعات پیدا نشد.")
+    return Response(waste_dict(t))

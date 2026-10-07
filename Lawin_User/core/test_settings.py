@@ -62,6 +62,9 @@ class CafeSettingsTests(SettingsApiTests):
                 "receipt_note": "",
                 "auto_print": True,
                 "low_stock_alert": True,
+                # موجودی اولیه‌ی پول؛ پایه‌ی گزارش گردش نقدینگی
+                "opening_cash": 0,
+                "opening_bank": 0,
                 "updated_at": CafeSettings.objects.get(pk=1).updated_at.isoformat(),
             },
         )

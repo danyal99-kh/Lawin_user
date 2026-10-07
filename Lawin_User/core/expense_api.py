@@ -1,16 +1,26 @@
 """CRUD هزینه‌ها. قالب خروجی دقیقاً مطابق Expense.fromJson در Flutter است.
 تاریخ همیشه سمت سرور ثبت می‌شود و در ویرایش ثابت می‌ماند (هر date ارسالی نادیده گرفته می‌شود).
+
+ثبت در دفتر حسابداری عمداً اینجا نوشته نشده: `core.signals` هر ذخیره/حذف
+Expense را هم‌تراز می‌کند تا هیچ راهی (API، پنل ادمین، shell، تست) بدون اثر
+حسابداری رد و رنگ نشود. برای دیدن پیاده‌سازی: core/signals.py
 """
 
 from django.utils import timezone
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
 from core.errors import Invalid, NotFound
+from core.security import HasSecurityTicket
 
-from .models import Expense
+from .models import CashAccount, Expense
+
+# هزینه‌ها بخشی از «حسابداری»اند؛ پس مثل بقیه‌ی APIهای مالی بلیت امنیتی لازم دارند.
+FINANCIAL_PERMISSIONS = [IsAdminUser, HasSecurityTicket]
 
 CATEGORIES = {c for c, _ in Expense.CATEGORIES}
+ACCOUNTS = {c for c, _ in CashAccount.choices}
 MAX_TITLE, MAX_NOTE = 120, 300
 MAX_AMOUNT = 10**12 - 1  # Flutter حداکثر ۱۲ رقم اجازه می‌دهد
 
@@ -21,6 +31,7 @@ def expense_dict(e):
         "title": e.title,
         "amount": e.amount,
         "category": e.category,
+        "account": e.account,
         "date": e.date.isoformat(),
         "note": e.note or None,  # note خالی ← null
     }
@@ -62,6 +73,12 @@ def _clean(data, partial):
         out["category"] = data["category"]
     elif not partial:
         out["category"] = "other"  # در ایجاد، بدون category ← other
+    if "account" in data:
+        if data["account"] not in ACCOUNTS:
+            raise Invalid("حساب پرداخت نامعتبر است.")
+        out["account"] = data["account"]
+    elif not partial:
+        out["account"] = CashAccount.CASH
     if "note" in data:
         note = data["note"]
         if note is None:
@@ -83,26 +100,31 @@ def _get(pk):
 
 
 @api_view(["GET", "POST"])
+@permission_classes(FINANCIAL_PERMISSIONS)
 def expenses(request):
     if request.method == "POST":
         data = _clean(request.data, partial=False)
-        e = Expense.objects.create(date=timezone.now(), **data)
+        e = Expense.objects.create(date=timezone.now(), **data)  # سیگنال دفتر را می‌نویسد
         return Response(expense_dict(e), status=201)
     return Response([expense_dict(e) for e in Expense.objects.order_by("-date", "-id")])
 
 
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
+@permission_classes(FINANCIAL_PERMISSIONS)
 def expense_detail(request, pk):
     e = _get(pk)
+    from django.db import transaction
+
     if request.method == "DELETE":
-        e.delete()
+        with transaction.atomic():
+            e.delete()  # سیگنال، ردیف دفتر را پاک می‌کند
         return Response(status=204)
     if request.method in ("PUT", "PATCH"):
         data = _clean(request.data, partial=True)
-        for k, v in data.items():
-            setattr(e, k, v)
-        if data:
-            e.save(
-                update_fields=list(data)
-            )  # date در update_fields نیست ← ثابت می‌ماند
+        with transaction.atomic():
+            e = Expense.objects.select_for_update().get(pk=pk)
+            for k, v in data.items():
+                setattr(e, k, v)
+            if data:
+                e.save(update_fields=list(data))  # date ثابت می‌ماند؛ سیگنال دفتر را جایگزین می‌کند
     return Response(expense_dict(e))

@@ -29,3 +29,22 @@ def login(request):
 
 
 login.cls.throttle_scope = "login"
+
+
+@api_view(["POST"])
+@throttle_classes([ScopedRateThrottle])
+def logout(request):
+    """خروج کامل: توکن همین نشست سمت سرور حذف می‌شود.
+
+    بعد از خروج، حتی اگر توکن جایی لو رفته‌باشد دیگر کاربری ندارد.
+    """
+    auth = getattr(request, "auth", None)
+    if auth is not None and hasattr(auth, "delete"):
+        try:
+            auth.delete()
+        except Exception:
+            pass
+    return Response({})
+
+
+logout.cls.throttle_scope = "logout"

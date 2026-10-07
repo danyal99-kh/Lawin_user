@@ -58,6 +58,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "core.middleware.SecurityTicketRefreshMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -138,6 +139,8 @@ SESSION_COOKIE_AGE = 12 * 3600
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
+# کوکی CSRF فریم‌ورک هم نباید قابل خواندن از JavaScript باشد.
+CSRF_COOKIE_HTTPONLY = True
 SECURE_SSL_REDIRECT = env("DJANGO_SECURE_SSL_REDIRECT", "0") == "1"
 if not DEBUG or SECURE_SSL_REDIRECT:
     SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = True
@@ -151,6 +154,35 @@ X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "same-origin"
 SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
 
+# هش رمزها عمداً صریح‌شده: فقط PBKDF2 سیاست‌گذاری می‌شود و هرگز الگوریتم
+# ضعیف‌تر (یا رمزِ متن‌ساده) به‌صورت پنهانی راه نیفتد.
+PASSWORD_HASHERS = ["django.contrib.auth.hashers.PBKDF2PasswordHasher"]
+
+# لاگ فقط هشدار به‌بالا و روی کنسول؛ جسم درخواست/پاسخ یا توکن هرگز لاگ نمی‌شود.
+# هیچ‌کدام از viewهای ما شکست رمز/توکن را لاگ نمی‌کنند.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "simple": {
+            "format": "[{levelname}] {asctime} {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+    },
+    "root": {"handlers": ["console"], "level": "WARNING"},
+    "loggers": {
+        # درخواست‌های HTTP جنگو در DEBUG اطلاعات زیادی را لاگ می‌کنند؛
+        # روی production جزئیات این تأییدیه‌ها را نمی‌پذیریم.
+        "django.request": {"level": "WARNING", "handlers": ["console"]},
+    },
+}
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.TokenAuthentication"
@@ -158,7 +190,13 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAdminUser"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "EXCEPTION_HANDLER": "core.errors.api_exception_handler",
-    "DEFAULT_THROTTLE_RATES": {"login": "10/min"},
+    "DEFAULT_THROTTLE_RATES": {
+        "login": "10/min",
+        "logout": "10/min",
+        # ورود امنیتی و تغییر رمز امنیتی، هم اندازه‌ی لاگین محدود شوند تا با
+        # آزمون‌وسخطای بی‌نهایت شکسته نشوند.
+        "security": "10/min",
+    },
     "COERCE_DECIMAL_TO_STRING": False,
 }
 

@@ -5,13 +5,19 @@ from django.test import Client, TestCase
 from django.utils import timezone
 
 from core.models import Expense
-from core.testing import make_world
+from core.security import TICKET_HEADER
+from core.testing import make_financial_world
 
 
 class ExpenseApiTests(TestCase):
     def setUp(self):
-        self.w = make_world()
-        self.api = Client(headers={"Authorization": f"Token {self.w.token}"})
+        self.w = make_financial_world()
+        self.api = Client(
+            headers={
+                "Authorization": f"Token {self.w.token}",
+                TICKET_HEADER: self.w.security_ticket,
+            }
+        )
 
     def send(self, method, url, body=None):
         return getattr(self.api, method)(
@@ -22,7 +28,7 @@ class ExpenseApiTests(TestCase):
         body = {
             "title": "خرید شیر",
             "amount": 850000,
-            "category": "raw_materials",
+            "category": "supplies",
             "note": "",
         }
         body.update(kw)
@@ -41,7 +47,7 @@ class ExpenseApiTests(TestCase):
         j = r.json()
         self.assertIsInstance(j["amount"], int)
         self.assertEqual(
-            (j["title"], j["category"], j["note"]), ("خرید شیر", "raw_materials", None)
+            (j["title"], j["category"], j["note"]), ("خرید شیر", "supplies", None)
         )
         e = Expense.objects.get(pk=j["id"])
         self.assertLess(timezone.now() - e.date, timedelta(minutes=1))

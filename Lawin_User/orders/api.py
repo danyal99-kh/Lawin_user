@@ -12,7 +12,7 @@ from .constants import OrderSource
 from .models import Order
 from .serializers import order_dict
 
-QS = Order.objects.select_related("table").prefetch_related("items")
+QS = Order.objects.select_related("table").prefetch_related("items", "payments")
 
 
 def _get(pk):
@@ -27,7 +27,8 @@ def orders(request):
     if request.method == "POST":
         d = request.data
         o = services.create_order(table_id=d.get("table_id"), items=d.get("items"),
-                                  source=OrderSource.ADMIN, customer_note=d.get("customer_note") or "")
+                                  source=OrderSource.ADMIN, customer_note=d.get("customer_note") or "",
+                                  idempotency_key=d.get("idempotency_key"))
         return Response(order_dict(_get(o.pk)), status=201)
     qs = QS.all()
     if s := request.query_params.get("status"):
@@ -60,7 +61,17 @@ def order_status(request, pk):
 
 @api_view(["POST"])
 def order_pay(request, pk):
-    services.pay_order(pk, request.data.get("method"), request.user)
+    """پرداخت یک سفارش. بدنه: {"method": "cash"} یا پرداخت چندروشی
+    {"payments": [{"method": "cash", "amount": 500000}, ...]}."""
+    services.pay_order(pk, request.data.get("method"), request.user,
+                       payments=request.data.get("payments"))
+    return Response(order_dict(_get(pk)))
+
+
+@api_view(["POST"])
+def order_refund(request, pk):
+    """برگشت کامل سفارش پرداخت‌شده: درآمد، پول، موجودی و COGS خنثا می‌شود."""
+    services.refund_order(pk, request.user)
     return Response(order_dict(_get(pk)))
 
 

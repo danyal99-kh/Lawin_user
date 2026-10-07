@@ -1,5 +1,7 @@
 from django.db import models
 
+from core.models import CashAccount
+
 
 class InventoryItem(models.Model):
     class Unit(models.TextChoices):
@@ -61,6 +63,10 @@ class InventoryTransaction(models.Model):
         CONSUME = "order_consume", "مصرف سفارش"
         RESTORE = "order_restore", "بازگشت (لغو سفارش)"
         ADJUST = "adjust", "اصلاح"
+        # تغییر قیمت واحد کالای موجود. مقدار این سطر همیشه صفر است (موجودی
+        # جابه‌جا نمی‌شود) و فقط ارزش انبار را تغییر می‌دهد؛ وجودش در تاریخچه‌ی
+        # انبار، قیمت‌گذاری گذشته را قابل حسابرسی نگه می‌دارد.
+        REVALUATION = "revaluation", "تجدید ارزش"
 
     class WasteReason(models.TextChoices):
         EXPIRED = "expired", "تاریخ‌گذشته"
@@ -79,6 +85,10 @@ class InventoryTransaction(models.Model):
     quantity = models.DecimalField(max_digits=14, decimal_places=3)
     unit_cost = models.DecimalField(
         max_digits=14, decimal_places=2, null=True, blank=True
+    )
+    # فقط برای kind=purchase: پول خرید از کدام حساب پرداخت شده (صندوق/بانک).
+    account = models.CharField(
+        max_length=5, choices=CashAccount.choices, default=CashAccount.CASH, blank=True
     )
     reason = models.CharField(
         max_length=20, choices=WasteReason.choices, null=True, blank=True
