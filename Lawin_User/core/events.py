@@ -26,6 +26,10 @@ WAITER_CALL_ACKNOWLEDGED = "waiter_call_acknowledged"
 WAITER_CALL_COMPLETED = "waiter_call_completed"
 TABLE_STATUS_CHANGED = "table_status_changed"
 PAYMENT_COMPLETED = "payment_completed"
+# نسیه (Accounts Receivable): ایجاد طلب، وصول (مقدار یا کل)، و بسته‌شدن نسیه
+CREDIT_CREATED = "credit_created"
+CREDIT_PAYMENT_CREATED = "credit_payment_created"
+CREDIT_SETTLED = "credit_settled"
 
 
 def table_group(table_id): return f"table_{table_id}"

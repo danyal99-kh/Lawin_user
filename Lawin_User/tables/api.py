@@ -69,7 +69,12 @@ def reserve(request, pk):
 
 @api_view(["POST"])
 def pay_table(request, pk):
-    """پرداخت همه‌ی سفارش‌های باز میز → Order=paid, Session=closed, Table=empty."""
+    """پرداخت همه‌ی سفارش‌های باز میز → Order=paid, Session=closed, Table=empty.
+
+    پرداخت نسیه (`method: "credit"` یا سهم credit در `payments`) نیازمند
+    `debtor_name` است؛ بقیه‌ی روش‌ها بی‌اثرند.
+    """
     order_services.pay_table(pk, request.data.get("method"), request.user,
-                              payments=request.data.get("payments"))
+                             payments=request.data.get("payments"),
+                             debtor_name=request.data.get("debtor_name"))
     return Response(build_overviews([Table.objects.get(pk=pk)])[0])

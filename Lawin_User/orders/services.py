@@ -20,6 +20,9 @@ from .serializers import order_dict
 
 MAX_QTY, MAX_LINES = 20, 30
 
+# نام بدهکار برای پرداخت نسیه: اجباری، تک‌خطی و در همین حد طولانی می‌شود.
+MAX_DEBTOR_NAME = 80
+
 
 def _clean_lines(raw):
     if not isinstance(raw, list) or not raw:
@@ -200,6 +203,18 @@ def _check_method(method):
         raise Invalid("روش پرداخت نامعتبر است.")
 
 
+def _clean_debtor_name(raw):
+    """نام بدهکار برای نسیه: لازم فقط وقتی است که سهمی از پرداخت «نسیه» باشد."""
+    if raw is None:
+        return ""
+    if not isinstance(raw, str):
+        raise Invalid("نام بدهکار نامعتبر است.")
+    name = " ".join(raw.split())
+    if len(name) > MAX_DEBTOR_NAME:
+        raise Invalid(f"نام بدهکار حداکثر {MAX_DEBTOR_NAME} حرف باشد.")
+    return name
+
+
 def _split_lines(raw, total):
     """پرداخت یک‌روشی یا چندروشی را به فهرست (method, amount) نرمال می‌کند.
 
@@ -238,14 +253,33 @@ def _split_lines(raw, total):
     return out
 
 
-def _settle(orders, payments, user):
-    """ثبت پرداخت و فروش در دفتر. `payments` فهرست (method, amount) به تفکیک سفارش."""
+def _settle(orders, payments, user, debtor_name=""):
+    """ثبت پرداخت و فروش در دفتر. `payments` فهرست (method, amount) به تفکیک سفارش.
+
+    اگر سهمی «نسیه» باشد، پول در دفتر نمی‌نشیند و به‌جایش یک Credit (طلب) برای
+    بدهکار ساخته می‌شود؛ درآمد همان لحظه شناسایی می‌شود، وجه نقد فقط هنگام
+    تسویه. ایمپورت `credits` محلی است چون خودِ آن اپ هم به orders وابسته است.
+    """
+    from credits import services as credit_services
+
+    credit_total = sum(
+        amount
+        for o in orders
+        for method, amount in payments[o.pk]
+        if method == PaymentMethod.CREDIT
+    )
+    if credit_total and not debtor_name:
+        raise Invalid("برای پرداخت نسیه، نام بدهکار را وارد کنید.")
+
     now, session = timezone.now(), orders[0].session
     total_paid = 0
     for o in orders:
         previous = o.status
         lines = payments[o.pk]
-        o.status, o.payment_status = OrderStatus.PAID, "paid"
+        has_credit = any(m == PaymentMethod.CREDIT for m, _a in lines)
+        o.status = OrderStatus.PAID
+        # نسیه یعنی هنوز پولی به دست نرسیده؛ ولی سفارش از دید میز بسته شده.
+        o.payment_status = "credit" if has_credit else "paid"
         # روش اصلی: اولین روش پرداخت؛ گزارش تفکیکی از Paymentها می‌خواند
         o.payment_method = lines[0][0]
         o.paid_at, o.version = now, o.version + 1
@@ -257,9 +291,17 @@ def _settle(orders, payments, user):
             )
             # هر پرداخت یک ورودی فروش مستقل در دفتر؛ کلید یکتایی روی خود Payment
             # است تا دو پرداخت هم‌روشِ یک سفارش هرکدام جدا ثبت شوند.
+            # برای نسیه، `post_sale` طبق METHOD_ACCOUNT بدهکار را «طلب» می‌کند، نه پول.
             ledger.post_sale(order=o, method=method, amount=amount,
                              occurred_at=now, source_key=f"payment:{payment.pk}")
             total_paid += amount
+        if has_credit:
+            credit_services.create_credit(
+                order=o,
+                debtor_name=debtor_name,
+                amount=sum(a for m, a in lines if m == PaymentMethod.CREDIT),
+                user=user,
+            )
         _publish_change(o, previous)
     closed = table_services.close_session_if_idle(session, now)
     events.publish_admin(events.PAYMENT_COMPLETED, {
@@ -269,21 +311,23 @@ def _settle(orders, payments, user):
 
 
 @transaction.atomic
-def pay_order(order_id, method=None, user=None, payments=None):
+def pay_order(order_id, method=None, user=None, payments=None, debtor_name=None):
     """پرداخت یک سفارش. `payments` برای پرداخت چندروشی است."""
     order = _lock(order_id)
     if not order.is_open:
         raise Conflict("این سفارش قبلاً بسته شده است.")
     lines = _split_lines(payments if payments is not None else method, order.total)
-    return _settle([order], {order.pk: lines}, user)[0]
+    return _settle([order], {order.pk: lines}, user,
+                   debtor_name=_clean_debtor_name(debtor_name))[0]
 
 
 @transaction.atomic
-def pay_table(table_id, method=None, user=None, payments=None):
+def pay_table(table_id, method=None, user=None, payments=None, debtor_name=None):
     """پرداخت همه‌ی سفارش‌های باز میز (پایان حضور مشتری).
 
     در حالت چندروشی، `payments` بین سفارش‌های باز به ترتیب شماره تخصیص می‌یابد و
-    هر سفارش دقیقاً به اندازه‌ی مبلغ خودش تسویه می‌شود.
+    هر سفارش دقیقاً به اندازه‌ی مبلغ خودش تسویه می‌شود. سهم «نسیه» نیازمند
+    `debtor_name` است.
     """
     _check_method(method) if payments is None else None
     if not Table.objects.select_for_update().filter(pk=table_id).exists():
@@ -299,7 +343,7 @@ def pay_table(table_id, method=None, user=None, payments=None):
     else:
         flat = _split_lines(payments, grand)
         alloc, i = {}, 0
-        for o in orders:  # تخصیص به ترتیب مبلغ سفارش؛ هرگز بیش از مبلغ سفارش
+        for o in orders:  # تخصیص به ترتیب مبلغ سفارش؛ هرگز بیشتر از مبلغ سفارش
             part = []
             left = o.total
             while left > 0:
@@ -311,7 +355,8 @@ def pay_table(table_id, method=None, user=None, payments=None):
                 if flat[i][1] == 0:
                     i += 1
             alloc[o.pk] = part
-    return _settle(orders, alloc, user)
+    return _settle(orders, alloc, user,
+                   debtor_name=_clean_debtor_name(debtor_name))
 
 
 @transaction.atomic
@@ -319,10 +364,13 @@ def refund_order(order_id, user=None):
     """برگشت کامل یک سفارش پرداخت‌شده: درآمد، پول، موجودی و بهای تمام‌شده خنثا می‌شود.
 
     طبق اصل ۱۰ پروژه هیچ اثر مالی قبلی نباید باقی بماند. پول دقیقاً از همان
-    حسابی که پرداخت شده بود برگردانده می‌شود.
+    حسابی که پرداخت شده بود برگردانده می‌شود؛ برای نسیه، طلبِ باز از بین
+    می‌رود و هر تسویه‌ای که قبلاً گرفته‌ایم به صندوق/بانک برمی‌گردد.
     """
+    from credits import services as credit_services
+
     order = _lock(order_id)
-    if order.status != OrderStatus.PAID or order.payment_status != "paid":
+    if order.status != OrderStatus.PAID or order.payment_status not in ("paid", "credit"):
         raise Conflict("فقط سفارش پرداخت‌شده را می‌توان برگرداند.")
     payments = list(order.payments.all())
     if not payments:
@@ -355,8 +403,11 @@ def refund_order(order_id, user=None):
     for p in payments:
         # درآمد برگشتی + بازگشت پول از همان حسابی که پرداخت شده بود.
         # کلید یکتایی روی همان Payment است تا refund چندروشی همه ثبت شود.
+        # برای نسیه این ورودی طلب را صفر می‌کند؛ تسویه‌های گرفته‌شده جداگانه
+        # برمی‌گردند (پایین‌تر) تا مانده‌ی بدهکاران دقیقاً صفر شود، نه منفی.
         ledger.post_refund(order=order, method=p.method, amount=p.amount,
                            occurred_at=now, source_key=f"payment:{p.pk}")
+    credit_services.refund_credits_for_order(order, occurred_at=now)
     for iid, q in restore.items():
         it = locked[iid]
         it.current_stock += q

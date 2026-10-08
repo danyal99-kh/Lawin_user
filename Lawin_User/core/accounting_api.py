@@ -19,7 +19,7 @@ from catalog.models import Product
 from core import ledger
 from core.errors import Invalid
 from core.jalali import jalali_day, start_of_day
-from core.models import CafeSettings, Expense, JournalKind
+from core.models import CafeSettings, Expense, JournalKind, LedgerAccount
 from core.security import HasSecurityTicket
 from inventory.models import InventoryItem
 from orders.constants import OrderStatus, PaymentMethod
@@ -59,7 +59,13 @@ KIND_LABELS = {
     JournalKind.WASTE: "ضایعات",
     JournalKind.EXPENSE: "هزینه",
     JournalKind.REFUND: "برگشت از فروش",
+    JournalKind.CREDIT_PAYMENT: "تسویه نسیه",
+    JournalKind.CREDIT_PAY_REV: "برگشت تسویه نسیه",
 }
+
+# نوع ردیف در API دفتر حسابداری: «درآمد» یعنی پولی که واقعاً باید بیاید/آمده،
+# «هزینه» یعنی خروجی؛ `refund` برای برگشت فروش است (Flutter fallback آن هزینه است).
+CREDIT_KINDS = {JournalKind.CREDIT_PAYMENT, JournalKind.CREDIT_PAY_REV}
 
 
 def _iso(d):
@@ -82,9 +88,18 @@ def transactions(request):
     for e in qs:
         lines = list(e.lines.all())
         amount = sum(l.amount for l in lines if l.side == "debit")
-        if e.kind in ("sale", "refund"):
-            entry_type = "income" if e.kind == "sale" else "refund"
-        elif e.kind in ("purchase", "cogs", "waste", "expense", "cogs_rev"):
+        if e.kind == JournalKind.SALE:
+            entry_type = "income"
+        elif e.kind == JournalKind.CREDIT_PAYMENT:
+            # وصول نسیه: پول واقعاً وارد صندوق/بانک شده پس درآمد نقدی است،
+            # هرچند ورودی فروشش قبلاً هنگام ثبت نسیه خورده شده است.
+            entry_type = "income"
+        elif e.kind in (JournalKind.REFUND, JournalKind.CREDIT_PAY_REV):
+            entry_type = "refund"
+        elif e.kind in (
+            JournalKind.PURCHASE, JournalKind.COGS, JournalKind.WASTE,
+            JournalKind.EXPENSE, JournalKind.COGS_REVERSE,
+        ):
             entry_type = "expense"
         else:
             entry_type = "expense"
@@ -235,6 +250,12 @@ def build_report(start, end):
         ],
         "payments_total": paid_total,
         "cash_flow": cf,
+        # نسیه: فروشِ اعتباری بازه، پولی که واقعاً از بدهکاران گرفته شده و
+        # مانده‌ی کل طلبکاری (وضعیت لحظه‌ای، نه جریان بازه).
+        "credit_sales": ledger.credit_sales(start, end),
+        "credit_collections": ledger.credit_collections(start, end),
+        "cash_received": cf["total_in"],
+        "outstanding_receivables": ledger.balance(LedgerAccount.RECEIVABLE),
         "order_count": orders.count(),
         "items_sold_count": items.aggregate(s=Sum("quantity"))["s"] or 0,
         "top_products": [

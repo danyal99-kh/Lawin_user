@@ -14,7 +14,9 @@ class Order(models.Model):
     table = models.ForeignKey("tables.Table", on_delete=models.PROTECT, related_name="orders")
     session = models.ForeignKey("tables.TableSession", on_delete=models.PROTECT, related_name="orders")
     status = models.CharField(max_length=10, choices=OrderStatus.choices, default=OrderStatus.NEW, db_index=True)
-    payment_status = models.CharField(max_length=10, default="unpaid")  # unpaid | paid | refunded
+    # unpaid | paid | credit | refunded — «credit» یعنی با نسیه تسویه شده و پولش
+    # هنوز وصول نشده؛ به محض تسویه‌ی کامل نسیه همین مقدار می‌ماند (تاریخچه).
+    payment_status = models.CharField(max_length=10, default="unpaid")
     payment_method = models.CharField(max_length=15, choices=PaymentMethod.choices, null=True, blank=True)
     # کلید یکتای اختیاری کلاینت برای جلوگیری از ثبت دوباره‌ی یک سفارش (idempotency)
     idempotency_key = models.CharField(max_length=64, blank=True, null=True, unique=True)

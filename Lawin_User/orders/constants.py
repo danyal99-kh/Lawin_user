@@ -19,6 +19,9 @@ class PaymentMethod(models.TextChoices):
     CASH = "cash", "نقدی"
     CARD_READER = "card_reader", "کارتخوان"
     CARD_TRANSFER = "card_transfer", "کارت‌به‌کارت"
+    # نسیه: پول هنوز گرفته نشده؛ در دفتر «طلب» (بدهکاران) ثبت می‌شود و فقط
+    # لحظه‌ی تسویه به صندوق/بانک می‌نشیند. جزء روش‌های معتبر پرداخت است.
+    CREDIT = "credit", "نسیه"
 
 
 class OrderSource(models.TextChoices):

@@ -187,6 +187,10 @@ class JournalKind(models.TextChoices):
     OPENING_STOCK = "opening_stock", "موجودی اولیه"
     # تغییر قیمتِ کالای موجود؛ فقط ارزش انبار را هم‌تراز می‌کند، نه پول را.
     REVALUATION = "revaluation", "تجدید ارزش"
+    # وصول نسیه: بدهکار صندوق/بانک، بستانکار بدهکاران (پول واقعاً گرفته شد).
+    CREDIT_PAYMENT = "credit_payment", "تسویه نسیه"
+    # برگشت یک وصول نسیه (برگشت سفارش نسیه‌ای): بدهکار بدهکاران، بستانکار پول.
+    CREDIT_PAY_REV = "credit_pay_rev", "برگشت تسویه نسیه"
 
 
 class LedgerAccount(models.TextChoices):
@@ -199,6 +203,9 @@ class LedgerAccount(models.TextChoices):
     COGS = "cogs", "بهای تمام‌شده"
     WASTE = "waste", "ضایعات"
     EXPENSE = "expense", "هزینه‌های عملیاتی"
+    # دارایی: مبلغ‌هایی که مشتریان نسیه باید بدهند (Accounts Receivable).
+    # بدهکار مثبت است؛ مانده‌ی آن = کل طلبکاریِ بازِ کافه.
+    RECEIVABLE = "receivable", "بدهکاران (نسیه)"
 
 
 class Side(models.TextChoices):

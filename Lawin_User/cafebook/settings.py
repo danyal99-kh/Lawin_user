@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "orders",
     "waiter_calls",
     "customer",
+    "credits",
 ]
 
 MIDDLEWARE = [
@@ -139,8 +140,10 @@ SESSION_COOKIE_AGE = 12 * 3600
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
-# کوکی CSRF فریم‌ورک هم نباید قابل خواندن از JavaScript باشد.
-CSRF_COOKIE_HTTPONLY = True
+# کوکی CSRF باید از JavaScript قابل خواندن باشد: فرانت‌اند سایت مشتری توکن را
+# از همین کوکی (`document.cookie`) می‌خواند و در هدر `X-CSRFToken` می‌فرستد.
+# اگر HttpOnly باشد، JS نمی‌تواند آن را ببیند و POST همیشه 403 می‌شود.
+CSRF_COOKIE_HTTPONLY = False
 SECURE_SSL_REDIRECT = env("DJANGO_SECURE_SSL_REDIRECT", "0") == "1"
 if not DEBUG or SECURE_SSL_REDIRECT:
     SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = True

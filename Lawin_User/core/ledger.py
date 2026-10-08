@@ -23,11 +23,14 @@ from .models import (
     Side,
 )
 
-# نگاشت روش پرداخت به حساب پولی: نقد ← صندوق، کارتخوان و کارت‌به‌کارت ← بانک
+# نگاشت روش پرداخت به حساب پولی: نقد ← صندوق، کارتخوان و کارت‌به‌کارت ← بانک.
+# نسیه به حساب پولی نمی‌نشیند: پولی جابه‌جا نشده، فقط «طلب» ثبت می‌شود؛
+# پولِ آن لحظه‌ای وصول می‌شود که تسویه‌ی نسیه ثبت شود (post_credit_payment).
 METHOD_ACCOUNT = {
     "cash": CashAccount.CASH,
     "card_reader": CashAccount.BANK,
     "card_transfer": CashAccount.BANK,
+    "credit": LedgerAccount.RECEIVABLE,
 }
 
 # حساب‌های درآمدی بستانکار مثبت‌اند؛ حساب‌های هزینه‌ای بدهکار مثبت.
@@ -456,7 +459,12 @@ def post_expense(*, expense, replace=False):
 
 
 def post_refund(*, order, method, amount, occurred_at=None, source_key=None):
-    """برگشت از فروش: بدهکار فروش (کاهش درآمد)، بستانکار صندوق/بانک."""
+    """برگشت از فروش: بدهکار فروش (کاهش درآمد)، بستانکار صندوق/بانک.
+
+    برای روش `credit` بستانکار «بدهکاران» است: فروشِ نسیه‌ای معکوس می‌شود و
+    طلبِ باز از بین می‌رود (پولِ وصول‌شده هم جداگانه برمی‌گردد؛
+    نگاه کن به `reverse_credit_payment`).
+    """
     return post(
         kind=JournalKind.REFUND,
         source_type="order",
@@ -470,6 +478,80 @@ def post_refund(*, order, method, amount, occurred_at=None, source_key=None):
         method=method,
         order=order,
     )
+
+
+# ----------------------------------------------------------- نسیه (بدهکاران)
+def post_credit_payment(*, payment, amount, account, occurred_at=None):
+    """وصول نسیه: بدهکار صندوق/بانک، بستانکار بدهکاران.
+
+    `payment` ردیف `credits.CreditPayment` است و کلید یکتایی روی همان ردیف
+    می‌نشیند تا پردازش دوباره‌ی یک تسویه هرگز دوبار ثبت نشود.
+    """
+    debtor = payment.debtor
+    return post(
+        kind=JournalKind.CREDIT_PAYMENT,
+        source_type="credit_payment",
+        source_id=payment.pk,
+        occurred_at=occurred_at or payment.created_at,
+        lines=[
+            (account, Side.DEBIT, amount),
+            (LedgerAccount.RECEIVABLE, Side.CREDIT, amount),
+        ],
+        title=f"تسویه نسیه {debtor.name}",
+        detail=f"سفارش {payment.credit.order.number}",
+        order=payment.credit.order,
+    )
+
+
+def reverse_credit_payment(*, payment, amount, account, occurred_at=None):
+    """برگشت یک وصول نسیه (هنگام برگشت سفارش): بدهکار بدهکاران، بستانکار پول.
+
+    با `post_refund(method="credit")` جفت می‌شود تا مانده‌ی بدهکاران دقیقاً صفر
+    شود، نه منفی.
+    """
+    debtor = payment.debtor
+    return post(
+        kind=JournalKind.CREDIT_PAY_REV,
+        source_type="credit_payment",
+        source_id=payment.pk,
+        occurred_at=occurred_at or timezone.now(),
+        lines=[
+            (LedgerAccount.RECEIVABLE, Side.DEBIT, amount),
+            (account, Side.CREDIT, amount),
+        ],
+        title=f"برگشت تسویه نسیه {debtor.name}",
+        detail=f"سفارش {payment.credit.order.number}",
+        order=payment.credit.order,
+    )
+
+
+def credit_sales(start=None, end=None):
+    """فروشِ نسیه‌ای ثبت‌شده در بازه (ورودی فروش با روش `credit`)."""
+    qs = JournalLine.objects.filter(
+        account=LedgerAccount.REVENUE,
+        side=Side.CREDIT,
+        entry__kind=JournalKind.SALE,
+        entry__method="credit",
+    )
+    if start is not None:
+        qs = qs.filter(entry__occurred_at__gte=start)
+    if end is not None:
+        qs = qs.filter(entry__occurred_at__lt=end)
+    return qs.aggregate(s=Sum("amount"))["s"] or 0
+
+
+def credit_collections(start=None, end=None):
+    """پولِ واقعاً وصول‌شده از بدهکاران در بازه (اثر نقدی تسویه‌ها)."""
+    qs = JournalLine.objects.filter(
+        account=LedgerAccount.RECEIVABLE,
+        side=Side.CREDIT,
+        entry__kind=JournalKind.CREDIT_PAYMENT,
+    )
+    if start is not None:
+        qs = qs.filter(entry__occurred_at__gte=start)
+    if end is not None:
+        qs = qs.filter(entry__occurred_at__lt=end)
+    return qs.aggregate(s=Sum("amount"))["s"] or 0
 
 
 def day_bounds(now=None):
@@ -549,7 +631,8 @@ def health():
         )
 
     # ۳) هر سفارشِ تسویه‌شده باید دقیقاً به اندازه‌ی مبلغش ورودی فروش داشته باشد.
-    for o in Order.objects.filter(payment_status="paid"):
+    #    سفارشِ نسیه هم «تسویه‌شده» است (پولش بعداً می‌آید) پس همین قاعده شاملش می‌شود.
+    for o in Order.objects.filter(payment_status__in=["paid", "credit"]):
         got = sum(
             p.amount
             for p in o.payments.all()
@@ -594,6 +677,40 @@ def health():
     if physical < 0:
         warnings.append(
             {"code": "negative_stock", "detail": "موجودی فیزیکی یک کالا منفی است"}
+        )
+
+    # ۶) مانده‌ی حساب بدهکاران باید دقیقاً با جمع مانده‌ی نسیه‌های ثبت‌شده یکی باشد.
+    #    اگر نسیه‌ای ثبت شده ولی در دفتر نرفته باشد (یا برعکس) اینجا دیده می‌شود.
+    from credits.models import Credit
+
+    receivable = balance(LedgerAccount.RECEIVABLE)
+    credit_sum = (
+        Credit.objects.aggregate(s=Sum("remaining_amount"))["s"] or 0
+    )
+    if receivable != credit_sum:
+        problems.append(
+            {
+                "code": "receivable_mismatch",
+                "detail": (
+                    f"مانده‌ی بدهکاران {receivable} ≠ جمع مانده‌ی نسیه‌ها {credit_sum}"
+                ),
+            }
+        )
+
+    # ۷) نسیه‌ای که بسته/برگشت شده نباید مانده‌ی صفر نداشته باشد؛ وگرنه یا وصولش
+    #    در دفتر ثبت نشده یا برعکس دفتر پولی را که واقعاً نگرفته‌ایم شمرده است.
+    stale = Credit.objects.exclude(status=Credit.Status.OPEN).exclude(
+        remaining_amount=0
+    )
+    for c in stale:
+        problems.append(
+            {
+                "code": "credit_status_mismatch",
+                "credit_id": c.id,
+                "detail": (
+                    f"نسیه با وضعیت {c.status} مانده‌ی {c.remaining_amount} دارد"
+                ),
+            }
         )
 
     return {

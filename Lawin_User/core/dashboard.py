@@ -111,6 +111,8 @@ def summary(request):
             "inventory_value": all_bal[LedgerAccount.INVENTORY],
             "cash_balance": settings_row.opening_cash + all_bal[CashAccount.CASH],
             "bank_balance": settings_row.opening_bank + all_bal[CashAccount.BANK],
+            # کل طلبکاریِ باز نسیه (حساب «بدهکاران» از همان دفتر).
+            "receivables_balance": all_bal[LedgerAccount.RECEIVABLE],
             "today_order_count": today_orders,
             "tables": [table_dict(t) for t in Table.objects.all()],
             "low_stock_items": [item_dict(i) for i in low],
