@@ -65,6 +65,7 @@ body{
   overflow-wrap:break-word;
 }
 body.locked{overflow:hidden}
+[hidden]{display:none!important}
 h1,h2,h3{margin:0; line-height:1.4; font-weight:700; letter-spacing:-.01em}
 p{margin:0}
 button,input,textarea{font:inherit; color:inherit}
@@ -235,7 +236,7 @@ ul,ol{margin:0; padding:0; list-style:none}
   min-width:19px; height:19px; padding:0 .3rem; font-size:.68rem; font-weight:700;
   display:grid; place-items:center; line-height:1; box-shadow:0 1px 4px rgba(201,111,18,.35)}
 
-/* ================= بنر گارسون ================= */
+/* ================= بنر Call Waiter ================= */
 .waiter-note{display:flex; align-items:center; gap:.6rem; max-width:var(--shell);
   margin:.7rem auto 0; padding:.65rem .9rem; border-radius:var(--r);
   background:var(--warn-050); color:var(--warn-d); font-size:.845rem; font-weight:500;
@@ -346,7 +347,7 @@ body.has-cart .products,body.has-cart .orders{padding-bottom:calc(var(--cart-h) 
 .cartbar .go:active{transform:scale(.95)}
 .cartbar .go svg{width:16px; height:16px}
 
-/* ================= دکمه‌ی گارسون ================= */
+/* ================= دکمه‌ی Call Waiter ================= */
 .bell{
   position:fixed; inset-inline-start:1rem; bottom:calc(14px + var(--safe-b)); z-index:23;
   width:58px; height:58px; border-radius:50%; border:1px solid var(--line);
@@ -355,8 +356,8 @@ body.has-cart .products,body.has-cart .orders{padding-bottom:calc(var(--cart-h) 
   animation:rise .3s var(--ease) both}
 .bell:active{transform:scale(.93)}
 .bell svg{width:23px; height:23px; color:var(--teal-d); transition:color .25s}
-.bell small{position:absolute; inset-block-end:5px; font-size:.53rem; color:var(--mute);
-  font-weight:600; letter-spacing:-.02em; line-height:1}
+.bell small{position:absolute; inset-inline:0; inset-block-end:5px; font-size:.5rem; color:var(--mute);
+  font-weight:600; letter-spacing:-.02em; line-height:1; text-align:center; white-space:nowrap}
 .bell[disabled]{cursor:default}
 .bell.pending{background:var(--warn-050); border-color:transparent}
 .bell.pending svg{color:var(--warn)}

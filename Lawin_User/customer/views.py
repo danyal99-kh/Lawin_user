@@ -144,7 +144,7 @@ def api_waiter(request):
         call, created = call_services.request_call(request.table.id)
         return JsonResponse({"call": call_dict(call), "created": created,
                              "message": (f"درخواست شما برای میز {request.table.number} ارسال شد." if created else
-                                         "درخواست شما ثبت شده است، گارسون به زودی مراجعه می‌کند.")},
+                                         "درخواست شما ثبت شده است، Call Waiter به زودی مراجعه می‌کند.")},
                             status=201 if created else 200)
     call = WaiterCall.objects.select_related("table").filter(
         table=request.table, status__in=call_services.ACTIVE).first()

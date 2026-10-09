@@ -8,8 +8,10 @@ from .serializers import session_dict, table_dict
 
 
 def _publish_status(table, session):
-    events.publish_admin(events.TABLE_STATUS_CHANGED,
-                         {"table": table_dict(table), "active_session": session_dict(session, table)})
+    events.publish_admin(
+        events.TABLE_STATUS_CHANGED,
+        {"table": table_dict(table), "active_session": session_dict(session, table)},
+    )
 
 
 def open_session(table_id, now=None):
@@ -28,7 +30,7 @@ def open_session(table_id, now=None):
 
 
 def close_session(session, now=None):
-    """قانون ۲: خروج ثبت، میز خالی و درخواست‌های گارسون باز بسته می‌شود."""
+    """قانون ۲: خروج ثبت، میز خالی و درخواست‌های ویتر باز بسته می‌شود."""
     now = now or timezone.now()
     session.exited_at = now
     session.save(update_fields=["exited_at"])
@@ -36,14 +38,20 @@ def close_session(session, now=None):
     if table.status == Table.Status.ACTIVE:
         table.status = Table.Status.EMPTY
         table.save(update_fields=["status"])
-    from waiter_calls.services import complete_active_for_table  # import محلی: جلوگیری از حلقه
+    from waiter_calls.services import (
+        complete_active_for_table,
+    )  # import محلی: جلوگیری از حلقه
+
     complete_active_for_table(table)
     _publish_status(table, None)
 
 
 def close_session_if_idle(session, now=None):
     """اگر سفارش بازی در نشست نمانده باشد آن را می‌بندد؛ True یعنی بسته شد."""
-    if session.exited_at is None and not session.orders.filter(status__in=OPEN_STATUSES).exists():
+    if (
+        session.exited_at is None
+        and not session.orders.filter(status__in=OPEN_STATUSES).exists()
+    ):
         close_session(session, now)
         return True
     return False

@@ -624,11 +624,11 @@
       `<div class="skel-o"><span class="sk-l w45"></span><span class="sk-l w70"></span><span class="sk-l"></span><span class="sk-l" style="width:35%"></span></div>`).join('');
   }
 
-  /* ===================== گارسون ===================== */
+  /* ===================== Call Waiter ===================== */
   let doneTimer;
   const CALL_TXT = {
-    pending: 'درخواست شما ارسال شد. گارسون به‌زودی مراجعه می‌کند.',
-    acknowledged: 'گارسون در جریان درخواست شما قرار گرفت.',
+    pending: 'درخواست شما ارسال شد. Call Waiter به‌زودی مراجعه می‌کند.',
+    acknowledged: 'Call Waiter در جریان درخواست شما قرار گرفت.',
     completed: 'درخواست شما انجام شد.',
   };
   function renderWaiter() {
@@ -638,9 +638,9 @@
     bell.classList.toggle('pending', c?.status === 'pending');
     bell.classList.toggle('ack', c?.status === 'acknowledged');
     bell.classList.toggle('done', c?.status === 'completed');
-    const label = { pending: 'ارسال شد', acknowledged: 'مطلع شد', completed: 'انجام شد' }[c?.status] || 'گارسون';
+    const label = { pending: 'ارسال شد', acknowledged: 'مطلع شد', completed: 'انجام شد' }[c?.status] || 'Call Waiter';
     bell.querySelector('small').textContent = label;
-    bell.setAttribute('aria-label', active ? 'درخواست گارسون ثبت شده است' : 'صدا کردن گارسون');
+    bell.setAttribute('aria-label', active ? 'درخواست Call Waiter ثبت شده است' : 'صدا کردن Call Waiter');
 
     note.hidden = !c;
     if (!c) return;
