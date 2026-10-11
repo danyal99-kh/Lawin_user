@@ -1,0 +1,34 @@
+# ============================================================================
+# قالب سرویس Cloudflare Tunnel (اختیاری — فقط وقتی دامنه دارید)
+# مزیت: بدون بازکردن پورت روی مودم؛ HTTPS معتبر به‌صورت خودکار.
+# نیازمند: دامنه‌ی متصل‌شده به Cloudflare + tunnel نام‌دار + فایل credentials.
+#
+# راه‌اندازی:
+#   cloudflared tunnel login
+#   cloudflared tunnel create lawin
+#   cloudflared tunnel route dns lawin lawin.example.com
+#   sudo cp ~/.cloudflared/<TUNNEL-ID>.json /etc/cloudflared/
+#   sudo cp ~/.cloudflared/cert.pem /etc/cloudflared/   (اختیاری)
+# سپس در /etc/cloudflared/config.yml مقصد را روی Nginx داخلی بگذارید:
+#   tunnel: <TUNNEL-ID>
+#   credentials-file: /etc/cloudflared/<TUNNEL-ID>.json
+#   ingress:
+#     - hostname: lawin.example.com
+#       service: http://127.0.0.1:8080
+#     - service: http_status:404
+# ============================================================================
+[Unit]
+Description=Cloudflare Tunnel for Lawin
+After=network-online.target lawin.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lawin
+Group=lawin
+ExecStart=/usr/local/bin/cloudflared --no-autoupdate --config /etc/cloudflared/config.yml tunnel run
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+[Unit]
+Description=Lawin nightly backup (PostgreSQL + media)
+After=network-online.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+User=lawin
+Group=lawin
+EnvironmentFile=/opt/lawin/app/.env
+ExecStart=/opt/lawin/app/deploy/scripts/backup.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
