@@ -65,7 +65,6 @@ body{
   overflow-wrap:break-word;
 }
 body.locked{overflow:hidden}
-[hidden]{display:none!important}
 h1,h2,h3{margin:0; line-height:1.4; font-weight:700; letter-spacing:-.01em}
 p{margin:0}
 button,input,textarea{font:inherit; color:inherit}
@@ -236,7 +235,7 @@ ul,ol{margin:0; padding:0; list-style:none}
   min-width:19px; height:19px; padding:0 .3rem; font-size:.68rem; font-weight:700;
   display:grid; place-items:center; line-height:1; box-shadow:0 1px 4px rgba(201,111,18,.35)}
 
-/* ================= بنر Call Waiter ================= */
+/* ================= بنر ویتر ================= */
 .waiter-note{display:flex; align-items:center; gap:.6rem; max-width:var(--shell);
   margin:.7rem auto 0; padding:.65rem .9rem; border-radius:var(--r);
   background:var(--warn-050); color:var(--warn-d); font-size:.845rem; font-weight:500;
@@ -322,21 +321,6 @@ body.has-cart .products,body.has-cart .orders{padding-bottom:calc(var(--cart-h) 
 .p.off .price{color:var(--mute)}
 .p.off .add{background:var(--bg-3); color:var(--mute); box-shadow:none; font-size:.79rem}
 
-/* ---------- آفر/تخفیف ---------- */
-.was{color:var(--mute); font-weight:500; font-size:.78rem; margin-inline-end:.4rem;
-  text-decoration:line-through; text-decoration-thickness:1.5px; opacity:.8}
-.off-badge{position:absolute; inset-block-start:5px; inset-inline-end:5px; z-index:2;
-  background:var(--bad); color:#fff; border-radius:99px; padding:.12rem .42rem;
-  font-size:.68rem; font-weight:700; line-height:1.5; box-shadow:0 2px 7px rgba(192,57,43,.4)}
-.p.off .off-badge{background:var(--mute-2); box-shadow:none}
-.deal-line{display:flex; align-items:center; gap:.4rem; margin:.55rem 0 0;
-  background:var(--bad-050); color:var(--bad-d); border-radius:var(--r-sm);
-  padding:.5rem .7rem; font-size:.81rem; font-weight:600}
-.deal-line svg{width:15px; height:15px; flex:none; color:var(--bad)}
-.crow .cb .deal-tag{display:inline-block; margin-inline-start:.4rem; vertical-align:middle;
-  background:var(--bad-050); color:var(--bad-d); border-radius:99px;
-  padding:.05rem .4rem; font-size:.68rem; font-weight:700}
-
 /* ================= نوار سبد ================= */
 .cartbar{
   position:fixed; inset-inline:1rem; bottom:calc(12px + var(--safe-b)); z-index:24;
@@ -362,7 +346,7 @@ body.has-cart .products,body.has-cart .orders{padding-bottom:calc(var(--cart-h) 
 .cartbar .go:active{transform:scale(.95)}
 .cartbar .go svg{width:16px; height:16px}
 
-/* ================= دکمه‌ی Call Waiter ================= */
+/* ================= دکمه‌ی ویتر ================= */
 .bell{
   position:fixed; inset-inline-start:1rem; bottom:calc(14px + var(--safe-b)); z-index:23;
   width:58px; height:58px; border-radius:50%; border:1px solid var(--line);
@@ -371,8 +355,8 @@ body.has-cart .products,body.has-cart .orders{padding-bottom:calc(var(--cart-h) 
   animation:rise .3s var(--ease) both}
 .bell:active{transform:scale(.93)}
 .bell svg{width:23px; height:23px; color:var(--teal-d); transition:color .25s}
-.bell small{position:absolute; inset-inline:0; inset-block-end:5px; font-size:.5rem; color:var(--mute);
-  font-weight:600; letter-spacing:-.02em; line-height:1; text-align:center; white-space:nowrap}
+.bell small{position:absolute; inset-block-end:5px; font-size:.53rem; color:var(--mute);
+  font-weight:600; letter-spacing:-.02em; line-height:1}
 .bell[disabled]{cursor:default}
 .bell.pending{background:var(--warn-050); border-color:transparent}
 .bell.pending svg{color:var(--warn)}

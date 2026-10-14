@@ -3,7 +3,7 @@
 
   /* ===================== قرارداد Backend (تغییرناپذیر) =====================
      cfg = {cafe, table, wsPath, urls:{menu, orders, waiter}}
-     GET  urls.menu    -> {table, categories:[{id,name,products:[{id,name,description,price,original_price,discount_percent,has_offer,image_url,available}]}]}
+     GET  urls.menu    -> {table, categories:[{id,name,products:[{id,name,description,price,image_url,available}]}]}
      GET  urls.orders  -> {orders:[order_dict]}
      POST urls.orders  -> 201 order_dict   | 400/403/404/409/429 {error:{code,message}}
      GET  urls.waiter  -> {call: call_dict|null}
@@ -179,21 +179,15 @@
     if (act) act.scrollIntoView({ block: 'nearest', inline: 'center' });
   }
 
-  // آیا این محصول آفر فعال دارد؟ (original_price نسبت به قیمت مؤثر بالاتر است)
-  function dealOf(p) {
-    return p && p.original_price && p.original_price > p.price ? p : null;
-  }
-
   function cardHtml(p) {
     const q = st.cart[p.id]?.qty || 0;
-    const deal = dealOf(p);
-    return `<button type="button" class="p ${p.available ? '' : 'off'}" data-p="${esc(p.id)}" aria-label="${esc(p.name)}${p.available ? '' : ' — فعلاً موجود نیست'}${deal ? ` — ${fa(deal.discount_percent)} درصد تخفیف` : ''}">
-      <span class="img">${productImg(p)}${deal ? `<span class="off-badge">${fa(deal.discount_percent)}٪</span>` : ''}${q ? `<span class="qty-badge" data-badge="${esc(p.id)}">${fa(q)}</span>` : ''}</span>
+    return `<button type="button" class="p ${p.available ? '' : 'off'}" data-p="${esc(p.id)}" aria-label="${esc(p.name)}${p.available ? '' : ' — فعلاً موجود نیست'}">
+      <span class="img">${productImg(p)}${q ? `<span class="qty-badge" data-badge="${esc(p.id)}">${fa(q)}</span>` : ''}</span>
       <span class="b">
         <span class="ttl">${esc(p.name)}</span>
         <span class="d">${esc(p.description)}</span>
         <span class="f">
-          <span class="price">${deal ? `<s class="was">${fa(deal.original_price)}</s>` : ''}${fa(p.price)}<small>تومان</small></span>
+          <span class="price">${fa(p.price)}<small>تومان</small></span>
           ${p.available
             ? `<span class="add" aria-hidden="true">${I.plus}افزودن</span>`
             : '<span class="add" aria-hidden="true">ناموجود</span>'}
@@ -361,7 +355,6 @@
     const inCart = !!st.cart[id];
     let qty = inCart ? st.cart[id].qty : 1;
 
-    const deal = dealOf(p);
     const head = `${imgOk(p.image_url)
       ? `<img class="hero" src="${esc(p.image_url)}" alt="" decoding="async" data-ph="hero">`
       : `<div class="hero-ph">${I.cup}</div>`}
@@ -376,9 +369,8 @@
             <button type="button" data-d="1" aria-label="اضافه کردن تعداد" ${qty >= MAX_QTY ? 'disabled' : ''}>${I.plus}</button>
           </span>
         </div>
-        <span class="pp price">${deal ? `<s class="was">${fa(deal.original_price)}</s>` : ''}${fa(p.price)}<small>تومان</small></span>
+        <span class="pp price">${fa(p.price)}<small>تومان</small></span>
       </div>
-      ${deal ? `<p class="deal-line">${I.alert}<span>این محصول ${fa(deal.discount_percent)}٪ تخفیف دارد</span></p>` : ''}
       <label class="field"><b>توضیح سفارش</b>
         <input type="text" id="note" maxlength="${MAX_NOTE}" enterkeyhint="done"
                placeholder="مثلاً بدون شکر، شیر بیشتر" value="${esc(st.cart[id]?.note || '')}">
@@ -421,14 +413,13 @@
   /* ---------- سبد ---------- */
   function cartRowHtml(l, confirm) {
     const off = !l.p || !l.p.available;
-    const deal = l.p ? dealOf(l.p) : null;
     const thumb = l.p && imgOk(l.p.image_url)
       ? `<img src="${esc(l.p.image_url)}" alt="" loading="lazy" decoding="async" data-ph="1">`
       : I.cup;
     return `<div class="crow ${off ? 'off' : ''}" data-id="${esc(l.id)}">
       <span class="th">${thumb}</span>
       <span class="cb">
-        <b>${esc(l.p ? l.p.name : 'محصول حذف‌شده')}${deal && !off ? `<span class="deal-tag">${fa(deal.discount_percent)}٪</span>` : ''}</b>
+        <b>${esc(l.p ? l.p.name : 'محصول حذف‌شده')}</b>
         ${l.note ? `<span class="ln">${esc(l.note)}</span>` : ''}
         ${off ? '<span class="tag">ناموجود</span>'
               : `<span class="amt" data-amt="${esc(l.id)}">${money(l.p.price * l.qty)}</span>`}
@@ -633,11 +624,11 @@
       `<div class="skel-o"><span class="sk-l w45"></span><span class="sk-l w70"></span><span class="sk-l"></span><span class="sk-l" style="width:35%"></span></div>`).join('');
   }
 
-  /* ===================== Call Waiter ===================== */
+  /* ===================== ویتر ===================== */
   let doneTimer;
   const CALL_TXT = {
-    pending: 'درخواست شما ارسال شد. Call Waiter به‌زودی مراجعه می‌کند.',
-    acknowledged: 'Call Waiter در جریان درخواست شما قرار گرفت.',
+    pending: 'درخواست شما ارسال شد. ویتر به‌زودی مراجعه می‌کند.',
+    acknowledged: 'ویتر در جریان درخواست شما قرار گرفت.',
     completed: 'درخواست شما انجام شد.',
   };
   function renderWaiter() {
@@ -647,9 +638,9 @@
     bell.classList.toggle('pending', c?.status === 'pending');
     bell.classList.toggle('ack', c?.status === 'acknowledged');
     bell.classList.toggle('done', c?.status === 'completed');
-    const label = { pending: 'ارسال شد', acknowledged: 'مطلع شد', completed: 'انجام شد' }[c?.status] || 'Call Waiter';
+    const label = { pending: 'ارسال شد', acknowledged: 'مطلع شد', completed: 'انجام شد' }[c?.status] || 'ویتر';
     bell.querySelector('small').textContent = label;
-    bell.setAttribute('aria-label', active ? 'درخواست Call Waiter ثبت شده است' : 'صدا کردن Call Waiter');
+    bell.setAttribute('aria-label', active ? 'درخواست ویتر ثبت شده است' : 'صدا کردن ویتر');
 
     note.hidden = !c;
     if (!c) return;
