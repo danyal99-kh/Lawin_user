@@ -32,7 +32,7 @@ def build_overviews(tables):
     ids = [t.id for t in tables]
     active = {s.table_id: s for s in TableSession.objects.filter(table_id__in=ids, exited_at__isnull=True)}
     orders = defaultdict(list)
-    for o in (Order.objects.select_related("table").prefetch_related("items")
+    for o in (Order.objects.select_related("table", "guest").prefetch_related("items")
               .filter(table_id__in=ids, status__in=OPEN_STATUSES).order_by("created_at")):
         orders[o.table_id].append(o)
     calls = {c.table_id: c for c in WaiterCall.objects.select_related("table")
@@ -72,9 +72,11 @@ def pay_table(request, pk):
     """پرداخت همه‌ی سفارش‌های باز میز → Order=paid, Session=closed, Table=empty.
 
     پرداخت نسیه (`method: "credit"` یا سهم credit در `payments`) نیازمند
-    `debtor_name` است؛ بقیه‌ی روش‌ها بی‌اثرند.
+    `debtor_name` است و مهمان‌کردن کل میز (`method: "guest"`) نیازمند
+    `guest_name`؛ بقیه‌ی روش‌ها بی‌اثرند.
     """
     order_services.pay_table(pk, request.data.get("method"), request.user,
                              payments=request.data.get("payments"),
-                             debtor_name=request.data.get("debtor_name"))
+                             debtor_name=request.data.get("debtor_name"),
+                             guest_name=request.data.get("guest_name"))
     return Response(build_overviews([Table.objects.get(pk=pk)])[0])

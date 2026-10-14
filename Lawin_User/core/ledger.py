@@ -458,6 +458,51 @@ def post_expense(*, expense, replace=False):
     )
 
 
+def post_guest(*, order, amount, occurred_at=None):
+    """مهمان‌نوازی: بدهکار هزینه، بستانکار درآمد. پول/صندوق/بانک دست‌نخورده.
+
+    مهمان یک «فروش رایگان» است: درآمد شناسایی و بلافاصله به‌عنوان هزینه‌ی
+    مهمان‌نوازی خنثا می‌شود؛ پس سود و زیان فقط به اندازه‌ی بهای تمام‌شده (که
+    قبلاً هنگام ساخت سفارش ثبت شده) کاهش می‌یابد. کلید یکتایی روی خود سفارش
+    است تا مهمان‌کردن دوباره‌ی یک سفارش سند دوم نسازد.
+    """
+    return post(
+        kind=JournalKind.GUEST,
+        source_type="order",
+        source_id=order.pk,
+        occurred_at=occurred_at or timezone.now(),
+        lines=[
+            (LedgerAccount.EXPENSE, Side.DEBIT, amount),
+            (LedgerAccount.REVENUE, Side.CREDIT, amount),
+        ],
+        title=f"مهمان‌نوازی سفارش {order.number}",
+        detail=f"میز {order.table.number}",
+        method="guest",
+        order=order,
+    )
+
+
+def reverse_guest(*, order, amount, occurred_at=None):
+    """برگشت مهمان‌نوازی (لغو/اصلاح): بدهکار درآمد، بستانکار هزینه.
+
+    ردیف تاریخی حذف نمی‌شود؛ اثر مالی‌اش با یک سند معکوس خنثا می‌شود.
+    """
+    return post(
+        kind=JournalKind.GUEST_REVERSE,
+        source_type="order",
+        source_id=order.pk,
+        occurred_at=occurred_at or timezone.now(),
+        lines=[
+            (LedgerAccount.REVENUE, Side.DEBIT, amount),
+            (LedgerAccount.EXPENSE, Side.CREDIT, amount),
+        ],
+        title=f"برگشت مهمان‌نوازی سفارش {order.number}",
+        detail=f"میز {order.table.number}",
+        method="guest",
+        order=order,
+    )
+
+
 def post_refund(*, order, method, amount, occurred_at=None, source_key=None):
     """برگشت از فروش: بدهکار فروش (کاهش درآمد)، بستانکار صندوق/بانک.
 
@@ -554,6 +599,33 @@ def credit_collections(start=None, end=None):
     return qs.aggregate(s=Sum("amount"))["s"] or 0
 
 
+def hospitality_total(start=None, end=None):
+    """هزینه‌ی خالص مهمان‌نوازی در بازه: سند GUEST منهای برگشت GUEST_REVERSE.
+
+    قبلاً در `total_expenses` (مانده‌ی حساب EXPENSE) لحاظ شده؛ این تابع فقط
+    همان مبلغ را جدا برمی‌گرداند تا گزارش بتواند «سهم مهمان‌نوازی» را هم بنمایاند.
+    """
+    debit = JournalLine.objects.filter(
+        account=LedgerAccount.EXPENSE,
+        side=Side.DEBIT,
+        entry__kind=JournalKind.GUEST,
+    )
+    credit = JournalLine.objects.filter(
+        account=LedgerAccount.EXPENSE,
+        side=Side.CREDIT,
+        entry__kind=JournalKind.GUEST_REVERSE,
+    )
+    if start is not None:
+        debit = debit.filter(entry__occurred_at__gte=start)
+        credit = credit.filter(entry__occurred_at__gte=start)
+    if end is not None:
+        debit = debit.filter(entry__occurred_at__lt=end)
+        credit = credit.filter(entry__occurred_at__lt=end)
+    return (debit.aggregate(s=Sum("amount"))["s"] or 0) - (
+        credit.aggregate(s=Sum("amount"))["s"] or 0
+    )
+
+
 def day_bounds(now=None):
     """(شروع امروز، شروع فردا) به وقت تهران؛ end نیمه‌باز است."""
     now = now or timezone.now()
@@ -619,13 +691,33 @@ def health():
         ).aggregate(s=Sum("amount"))["s"]
         or 0
     )
-    if revenue != paid_sum - refunded:
+    # مهمان‌نوازی درآمد را بستانکار می‌کند ولی هیچ Paymentی ندارد؛ پس برای
+    # تطبیق «درآمد = پرداخت‌ها − برگشتی‌ها» باید سهم مهمان جدا شود، وگرنه این
+    # بازرسی روی داده‌ی واقعی قرمز می‌شود.
+    guest_revenue = (
+        JournalLine.objects.filter(
+            account=LedgerAccount.REVENUE,
+            side=Side.CREDIT,
+            entry__kind=JournalKind.GUEST,
+        ).aggregate(s=Sum("amount"))["s"]
+        or 0
+    )
+    guest_reversed = (
+        JournalLine.objects.filter(
+            account=LedgerAccount.REVENUE,
+            side=Side.DEBIT,
+            entry__kind=JournalKind.GUEST_REVERSE,
+        ).aggregate(s=Sum("amount"))["s"]
+        or 0
+    )
+    if revenue != paid_sum - refunded + guest_revenue - guest_reversed:
         problems.append(
             {
                 "code": "revenue_mismatch",
                 "detail": (
                     f"درآمد دفتر {revenue} ≠ جمع پرداخت‌ها {paid_sum}"
-                    f" منهای برگشتی {refunded}"
+                    f" منهای برگشتی {refunded} به‌علاوه مهمان {guest_revenue}"
+                    f" منهای برگشت مهمان {guest_reversed}"
                 ),
             }
         )
@@ -709,6 +801,43 @@ def health():
                 "credit_id": c.id,
                 "detail": (
                     f"نسیه با وضعیت {c.status} مانده‌ی {c.remaining_amount} دارد"
+                ),
+            }
+        )
+
+    # ۸) مبلغ مهمان‌نوازیِ سند دفتر باید با جمع مهمان‌های فعال بخواند. این
+    #    تطبیق تضمین می‌کند گزارش مهمان‌ها دقیقاً همان چیزی است که در دفتر
+    #    ثبت شده و لغوها هم دوباره شمرده نمی‌شوند.
+    from guests.models import Guest
+
+    hospitality = (
+        JournalLine.objects.filter(
+            account=LedgerAccount.EXPENSE,
+            side=Side.DEBIT,
+            entry__kind=JournalKind.GUEST,
+        ).aggregate(s=Sum("amount"))["s"]
+        or 0
+    ) - (
+        JournalLine.objects.filter(
+            account=LedgerAccount.EXPENSE,
+            side=Side.CREDIT,
+            entry__kind=JournalKind.GUEST_REVERSE,
+        ).aggregate(s=Sum("amount"))["s"]
+        or 0
+    )
+    active_guests = (
+        Guest.objects.filter(status=Guest.Status.ACTIVE).aggregate(
+            s=Sum("amount")
+        )["s"]
+        or 0
+    )
+    if hospitality != active_guests:
+        problems.append(
+            {
+                "code": "guest_mismatch",
+                "detail": (
+                    f"سند مهمان‌نوازی {hospitality} ≠ جمع مهمان‌های فعال "
+                    f"{active_guests}"
                 ),
             }
         )

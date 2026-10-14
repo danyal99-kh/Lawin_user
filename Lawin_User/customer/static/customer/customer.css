@@ -322,6 +322,21 @@ body.has-cart .products,body.has-cart .orders{padding-bottom:calc(var(--cart-h) 
 .p.off .price{color:var(--mute)}
 .p.off .add{background:var(--bg-3); color:var(--mute); box-shadow:none; font-size:.79rem}
 
+/* ---------- آفر/تخفیف ---------- */
+.was{color:var(--mute); font-weight:500; font-size:.78rem; margin-inline-end:.4rem;
+  text-decoration:line-through; text-decoration-thickness:1.5px; opacity:.8}
+.off-badge{position:absolute; inset-block-start:5px; inset-inline-end:5px; z-index:2;
+  background:var(--bad); color:#fff; border-radius:99px; padding:.12rem .42rem;
+  font-size:.68rem; font-weight:700; line-height:1.5; box-shadow:0 2px 7px rgba(192,57,43,.4)}
+.p.off .off-badge{background:var(--mute-2); box-shadow:none}
+.deal-line{display:flex; align-items:center; gap:.4rem; margin:.55rem 0 0;
+  background:var(--bad-050); color:var(--bad-d); border-radius:var(--r-sm);
+  padding:.5rem .7rem; font-size:.81rem; font-weight:600}
+.deal-line svg{width:15px; height:15px; flex:none; color:var(--bad)}
+.crow .cb .deal-tag{display:inline-block; margin-inline-start:.4rem; vertical-align:middle;
+  background:var(--bad-050); color:var(--bad-d); border-radius:99px;
+  padding:.05rem .4rem; font-size:.68rem; font-weight:700}
+
 /* ================= نوار سبد ================= */
 .cartbar{
   position:fixed; inset-inline:1rem; bottom:calc(12px + var(--safe-b)); z-index:24;

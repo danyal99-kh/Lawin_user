@@ -81,7 +81,7 @@ def summary(request):
 
     # ترتیب از Meta.ordering مدل می‌آید (`-created_at`, سپس `-number`) تا وقتی چند
     # سفارش در یک ثانیه ثبت می‌شوند «جدیدترین» نامعین نشود.
-    recent_orders = Order.objects.select_related("table").prefetch_related(
+    recent_orders = Order.objects.select_related("table", "guest").prefetch_related(
         "items", "payments"
     )[:RECENT_ORDERS]
 

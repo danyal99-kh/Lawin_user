@@ -12,7 +12,7 @@ from .constants import OrderSource
 from .models import Order
 from .serializers import order_dict
 
-QS = Order.objects.select_related("table").prefetch_related("items", "payments")
+QS = Order.objects.select_related("table", "guest").prefetch_related("items", "payments")
 
 
 def _get(pk):
@@ -63,10 +63,11 @@ def order_status(request, pk):
 def order_pay(request, pk):
     """پرداخت یک سفارش. بدنه: {"method": "cash"} یا پرداخت چندروشی
     {"payments": [{"method": "cash", "amount": 500000}, ...]}.
-    برای نسیه `debtor_name` هم لازم است."""
+    برای نسیه `debtor_name` و برای مهمان `guest_name` هم لازم است."""
     services.pay_order(pk, request.data.get("method"), request.user,
                        payments=request.data.get("payments"),
-                       debtor_name=request.data.get("debtor_name"))
+                       debtor_name=request.data.get("debtor_name"),
+                       guest_name=request.data.get("guest_name"))
     return Response(order_dict(_get(pk)))
 
 

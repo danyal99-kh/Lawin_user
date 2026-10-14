@@ -61,6 +61,8 @@ KIND_LABELS = {
     JournalKind.REFUND: "برگشت از فروش",
     JournalKind.CREDIT_PAYMENT: "تسویه نسیه",
     JournalKind.CREDIT_PAY_REV: "برگشت تسویه نسیه",
+    JournalKind.GUEST: "مهمان‌نوازی",
+    JournalKind.GUEST_REVERSE: "برگشت مهمان‌نوازی",
 }
 
 # نوع ردیف در API دفتر حسابداری: «درآمد» یعنی پولی که واقعاً باید بیاید/آمده،
@@ -94,11 +96,14 @@ def transactions(request):
             # وصول نسیه: پول واقعاً وارد صندوق/بانک شده پس درآمد نقدی است،
             # هرچند ورودی فروشش قبلاً هنگام ثبت نسیه خورده شده است.
             entry_type = "income"
-        elif e.kind in (JournalKind.REFUND, JournalKind.CREDIT_PAY_REV):
+        elif e.kind in (
+            JournalKind.REFUND, JournalKind.CREDIT_PAY_REV,
+            JournalKind.GUEST_REVERSE,
+        ):
             entry_type = "refund"
         elif e.kind in (
             JournalKind.PURCHASE, JournalKind.COGS, JournalKind.WASTE,
-            JournalKind.EXPENSE, JournalKind.COGS_REVERSE,
+            JournalKind.EXPENSE, JournalKind.COGS_REVERSE, JournalKind.GUEST,
         ):
             entry_type = "expense"
         else:
@@ -254,6 +259,9 @@ def build_report(start, end):
         # مانده‌ی کل طلبکاری (وضعیت لحظه‌ای، نه جریان بازه).
         "credit_sales": ledger.credit_sales(start, end),
         "credit_collections": ledger.credit_collections(start, end),
+        # مهمان‌نوازی: هزینه‌ی پذیرایی رایگان در بازه (در total_expenses هم
+        # لحاظ شده؛ اینجا فقط سهمش جداگانه نمایش داده می‌شود).
+        "guest_hospitality": ledger.hospitality_total(start, end),
         "cash_received": cf["total_in"],
         "outstanding_receivables": ledger.balance(LedgerAccount.RECEIVABLE),
         "order_count": orders.count(),

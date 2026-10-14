@@ -45,7 +45,11 @@ class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey("catalog.Product", null=True, on_delete=models.SET_NULL)
     product_name = models.CharField(max_length=80)      # snapshot
-    unit_price = models.PositiveIntegerField()          # snapshot: قیمت واقعی از دیتابیس
+    # snapshot‌ها: قیمت پایه‌ی محصول در لحظه‌ی سفارش و قیمت مؤثر پس از آفر.
+    # تغییر بعدی آفر هرگز این مقادیر را عوض نمی‌کند (سفارش‌های قبلی دست‌نخورده).
+    original_price = models.PositiveIntegerField(default=0)  # قیمت پایه قبل از تخفیف
+    discount_amount = models.PositiveIntegerField(default=0)  # تخفیف هر واحد
+    unit_price = models.PositiveIntegerField()          # snapshot: قیمت مؤثر نهایی
     quantity = models.PositiveSmallIntegerField()
     note = models.CharField(max_length=120, blank=True)
 

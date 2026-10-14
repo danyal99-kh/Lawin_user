@@ -13,6 +13,7 @@ api_v1 = [
     path("", include("inventory.api_urls")),
     path("", include("inventory.recipe_urls")),
     path("", include("credits.api_urls")),
+    path("", include("guests.api_urls")),
 ]
 
 urlpatterns = [

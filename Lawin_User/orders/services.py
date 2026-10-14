@@ -7,6 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from catalog.models import Product
+from catalog import pricing
 from core import events, ledger
 from core.errors import Conflict, InactiveProduct, Invalid, NotFound, OutOfStock
 from core.models import Counter
@@ -140,7 +141,8 @@ def create_order(*, table_id, items, source=OrderSource.CUSTOMER, customer_key="
     if not Table.objects.filter(pk=table_id).exists():
         raise NotFound("میز پیدا نشد.")
 
-    products = {p.id: p for p in Product.objects.select_related("category").filter(
+    products = {p.id: p for p in Product.objects.select_related("category").prefetch_related(
+        "offers", "category__offers").filter(
         id__in={l["product_id"] for l in lines})}
     if len(products) != len({l["product_id"] for l in lines}):
         raise NotFound("یکی از محصولات پیدا نشد.")
@@ -154,9 +156,14 @@ def create_order(*, table_id, items, source=OrderSource.CUSTOMER, customer_key="
         number=Counter.next("order"), source=source, table=table, session=session,
         customer_key=customer_key, customer_note=(customer_note or "").strip()[:200],
         idempotency_key=idempotency_key or None)
+    # قیمت مؤثر در همین لحظه از سرویس مرکزی آفر گرفته و snapshot می‌شود؛ قیمت
+    # پایه و کل تخفیف هم ذخیره می‌شوند تا سفارش‌های قبلی به تغییر آفر وابسته نباشند.
+    quotes = {pid: pricing.quote_product(p) for pid, p in products.items()}
     OrderItem.objects.bulk_create([
         OrderItem(order=order, product=products[l["product_id"]], product_name=products[l["product_id"]].name,
-                  unit_price=products[l["product_id"]].price, quantity=l["quantity"], note=l["note"])
+                  original_price=quotes[l["product_id"]]["base"],
+                  discount_amount=quotes[l["product_id"]]["base"] - quotes[l["product_id"]]["final"],
+                  unit_price=quotes[l["product_id"]]["final"], quantity=l["quantity"], note=l["note"])
         for l in lines])
     order.total = sum(i.unit_price * i.quantity for i in order.items.all())
     order.save(update_fields=["total"])
@@ -201,6 +208,10 @@ def change_status(order_id, new_status):
 def _check_method(method):
     if method not in PaymentMethod.values:
         raise Invalid("روش پرداخت نامعتبر است.")
+    # «مهمان» در فهرست روش‌ها هست تا در UI دیده شود، اما روشِ پولی نیست؛
+    # مسیرش جداست (guests.services) و نباید به _split_lines/_settle برسد.
+    if method == PaymentMethod.GUEST:
+        raise Invalid("برای مهمان‌کردن از گزینه‌ی مهمان استفاده کنید.")
 
 
 def _clean_debtor_name(raw):
@@ -311,8 +322,19 @@ def _settle(orders, payments, user, debtor_name=""):
 
 
 @transaction.atomic
-def pay_order(order_id, method=None, user=None, payments=None, debtor_name=None):
-    """پرداخت یک سفارش. `payments` برای پرداخت چندروشی است."""
+def pay_order(order_id, method=None, user=None, payments=None, debtor_name=None,
+              guest_name=None):
+    """پرداخت یک سفارش. `payments` برای پرداخت چندروشی است.
+
+    `method="guest"` سفارش را مهمان می‌کند: هیچ پرداختی ثبت نمی‌شود و به‌جای
+    درآمد نقدی، سند هزینه‌ی مهمان‌نوازی در دفتر می‌آید (`guests.services`).
+    """
+    if payments is None and method == PaymentMethod.GUEST:
+        from guests import services as guest_services
+
+        return guest_services.mark_guest(
+            order_id=order_id, name=guest_name, user=user
+        ).order
     order = _lock(order_id)
     if not order.is_open:
         raise Conflict("این سفارش قبلاً بسته شده است.")
@@ -322,13 +344,20 @@ def pay_order(order_id, method=None, user=None, payments=None, debtor_name=None)
 
 
 @transaction.atomic
-def pay_table(table_id, method=None, user=None, payments=None, debtor_name=None):
+def pay_table(table_id, method=None, user=None, payments=None, debtor_name=None,
+              guest_name=None):
     """پرداخت همه‌ی سفارش‌های باز میز (پایان حضور مشتری).
 
     در حالت چندروشی، `payments` بین سفارش‌های باز به ترتیب شماره تخصیص می‌یابد و
     هر سفارش دقیقاً به اندازه‌ی مبلغ خودش تسویه می‌شود. سهم «نسیه» نیازمند
-    `debtor_name` است.
+    `debtor_name` است. `method="guest"` کل میز را مهمان می‌کند.
     """
+    if payments is None and method == PaymentMethod.GUEST:
+        from guests import services as guest_services
+
+        return guest_services.mark_table_guest(
+            table_id=table_id, name=guest_name, user=user
+        )
     _check_method(method) if payments is None else None
     if not Table.objects.select_for_update().filter(pk=table_id).exists():
         raise NotFound("میز پیدا نشد.")

@@ -30,6 +30,10 @@ PAYMENT_COMPLETED = "payment_completed"
 CREDIT_CREATED = "credit_created"
 CREDIT_PAYMENT_CREATED = "credit_payment_created"
 CREDIT_SETTLED = "credit_settled"
+# مهمان‌ها: ثبت/ویرایش نام/لغو مهمان‌نوازی
+GUEST_CREATED = "guest_created"
+GUEST_UPDATED = "guest_updated"
+GUEST_CANCELLED = "guest_cancelled"
 
 
 def table_group(table_id): return f"table_{table_id}"

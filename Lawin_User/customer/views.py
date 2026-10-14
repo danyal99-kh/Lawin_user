@@ -11,6 +11,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
 from catalog.models import Category, Product
+from catalog import pricing
 from catalog.services import is_available
 from core.errors import DomainError, Invalid, TooManyRequests
 from core.models import CafeSettings, WelcomeMessage
@@ -85,13 +86,27 @@ def menu(request):
 @require_table
 @api_view
 def api_menu(request):
-    products = Product.objects.order_by("sort_order", "id").prefetch_related("recipe__items__inventory_item")
-    cats = Category.objects.filter(is_active=True).prefetch_related(Prefetch("products", queryset=products))
+    # offers و category__offers پیش‌بارگذاری می‌شوند تا محاسبه‌ی قیمت مؤثر در
+    # سرویس مرکزی کوئری اضافه نسازد.
+    products = (Product.objects.order_by("sort_order", "id")
+                .select_related("category")
+                .prefetch_related("recipe__items__inventory_item", "offers",
+                                  "category__offers"))
+    cats = Category.objects.filter(is_active=True).prefetch_related(
+        Prefetch("products", queryset=products))
+
+    def product_dict(p):
+        q = pricing.quote_product(p)
+        return {
+            "id": p.id, "name": p.name, "description": p.description,
+            # price = قیمت مؤثر نهایی؛ original_price = قیمت پایه (برای خط‌خوردگی).
+            "price": q["final"], "original_price": q["base"],
+            "discount_percent": q["total_percent"], "has_offer": bool(q["percentages"]),
+            "image_url": p.image.url if p.image else None, "available": is_available(p),
+        }
+
     return JsonResponse({"table": request.table.number, "categories": [
-        {"id": c.id, "name": c.name, "products": [
-            {"id": p.id, "name": p.name, "description": p.description, "price": p.price,
-             "image_url": p.image.url if p.image else None, "available": is_available(p)}
-            for p in c.products.all()]}
+        {"id": c.id, "name": c.name, "products": [product_dict(p) for p in c.products.all()]}
         for c in cats]})
 
 
@@ -104,7 +119,7 @@ def _throttle(key):
 
 
 def _own_orders(request):
-    return (Order.objects.select_related("table").prefetch_related("items")
+    return (Order.objects.select_related("table", "guest").prefetch_related("items")
             .filter(customer_key=request.customer_key, table=request.table))
 
 

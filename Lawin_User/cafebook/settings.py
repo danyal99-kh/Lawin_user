@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "waiter_calls",
     "customer",
     "credits",
+    "guests",
 ]
 
 MIDDLEWARE = [
