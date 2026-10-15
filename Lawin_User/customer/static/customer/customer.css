@@ -309,6 +309,17 @@ body.has-cart .products,body.has-cart .orders{padding-bottom:calc(var(--cart-h) 
 .price{display:inline-flex; align-items:baseline; gap:.28rem; font-weight:700;
   color:var(--teal-d); font-size:1.02rem; letter-spacing:-.01em; white-space:nowrap}
 .price small{font-weight:500; font-size:.72rem; color:var(--mute)}
+
+.price-offer{display:inline-flex; flex-wrap:wrap; align-items:baseline;
+  gap:.2rem .45rem; white-space:normal}
+.price-current{display:inline-flex; align-items:baseline; gap:.28rem;
+  color:var(--teal-d); font-weight:700}
+.price-old{font-size:.78rem; color:var(--mute); text-decoration:line-through;
+  white-space:nowrap}
+.offer-badge{font-size:.7rem; font-weight:700; color:var(--teal-d);
+  background:var(--card-2); border-radius:99px; padding:.12rem .4rem;
+  white-space:nowrap}
+
 .add{display:inline-flex; align-items:center; gap:.3rem; min-height:38px; padding:0 .8rem;
   border-radius:99px; background:var(--teal); color:#fff; font-size:.83rem; font-weight:600;
   box-shadow:var(--sh-teal); white-space:nowrap;

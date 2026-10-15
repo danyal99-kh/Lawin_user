@@ -179,6 +179,22 @@
     if (act) act.scrollIntoView({ block: 'nearest', inline: 'center' });
   }
 
+  function priceHtml(p, extraClass = '') {
+    const classes = `price ${extraClass}`.trim();
+    const hasOffer = Boolean(p.has_offer)
+      && Number(p.original_price) > Number(p.price);
+
+    if (!hasOffer) {
+      return `<span class="${classes}">${fa(p.price)}<small>تومان</small></span>`;
+    }
+
+    return `<span class="${classes} price-offer">
+      <span class="price-current">${fa(p.price)}<small>تومان</small></span>
+      <span class="price-old">${fa(p.original_price)} تومان</span>
+      <span class="offer-badge">${fa(p.discount_percent)}٪ تخفیف</span>
+    </span>`;
+  }
+
   function cardHtml(p) {
     const q = st.cart[p.id]?.qty || 0;
     return `<button type="button" class="p ${p.available ? '' : 'off'}" data-p="${esc(p.id)}" aria-label="${esc(p.name)}${p.available ? '' : ' — فعلاً موجود نیست'}">
@@ -187,7 +203,7 @@
         <span class="ttl">${esc(p.name)}</span>
         <span class="d">${esc(p.description)}</span>
         <span class="f">
-          <span class="price">${fa(p.price)}<small>تومان</small></span>
+          ${priceHtml(p)}
           ${p.available
             ? `<span class="add" aria-hidden="true">${I.plus}افزودن</span>`
             : '<span class="add" aria-hidden="true">ناموجود</span>'}
@@ -369,7 +385,7 @@
             <button type="button" data-d="1" aria-label="اضافه کردن تعداد" ${qty >= MAX_QTY ? 'disabled' : ''}>${I.plus}</button>
           </span>
         </div>
-        <span class="pp price">${fa(p.price)}<small>تومان</small></span>
+        ${priceHtml(p, "pp")}
       </div>
       <label class="field"><b>توضیح سفارش</b>
         <input type="text" id="note" maxlength="${MAX_NOTE}" enterkeyhint="done"
